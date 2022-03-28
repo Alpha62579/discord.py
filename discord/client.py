@@ -196,6 +196,10 @@ class Client:
         `aiohttp documentation <https://docs.aiohttp.org/en/stable/client_advanced.html#client-tracing>`_.
 
         .. versionadded:: 2.0
+    mobile: :class:`bool`
+        Whether to make the bot appear to be running on mobile. Defaults to ``False``.
+        
+        .. versionadded:: 2.0
 
     Attributes
     -----------
@@ -238,6 +242,7 @@ class Client:
         self._ready: asyncio.Event = MISSING
         self._connection._get_websocket = self._get_websocket
         self._connection._get_client = lambda: self
+        self._mobile = options.pop('mobile', False)
 
         if VoiceClient.warn_nacl:
             VoiceClient.warn_nacl = False
