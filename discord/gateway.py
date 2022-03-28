@@ -373,6 +373,7 @@ class DiscordWebSocket:
         ws.session_id = session
         ws.sequence = sequence
         ws._max_heartbeat_timeout = client._connection.heartbeat_timeout
+        ws._mobile = client._mobile
 
         if client._enable_debug_events:
             ws.send = ws.debug_send
@@ -429,8 +430,8 @@ class DiscordWebSocket:
             'd': {
                 'token': self.token,
                 'properties': {
-                    '$os': sys.platform,
-                    '$browser': 'discord.py',
+                    '$os': 'iOS' if self._mobile else sys.platform,
+                    '$browser': 'Discord iOS' if self._mobile else 'discord.py',
                     '$device': 'discord.py',
                     '$referrer': '',
                     '$referring_domain': '',
