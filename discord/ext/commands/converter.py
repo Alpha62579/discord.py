@@ -1065,7 +1065,7 @@ def _convert_to_bool(argument: str) -> bool:
 
 
 def get_converter(param: inspect.Parameter) -> Any:
-    converter = param.annotation
+    converter = param.annotation[0] if isinstance(param.annotation, tuple) else param.annotation
     if converter is param.empty:
         if param.default is not param.empty:
             converter = str if param.default is None else type(param.default)
