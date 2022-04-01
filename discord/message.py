@@ -40,7 +40,6 @@ from typing import (
     Callable,
     Tuple,
     ClassVar,
-    Optional,
     Type,
     overload,
 )
@@ -85,7 +84,7 @@ if TYPE_CHECKING:
     from .types.embed import Embed as EmbedPayload
     from .types.gateway import MessageReactionRemoveEvent, MessageUpdateEvent
     from .abc import Snowflake
-    from .abc import GuildChannel, PartialMessageableChannel, MessageableChannel
+    from .abc import GuildChannel, MessageableChannel
     from .components import Component
     from .state import ConnectionState
     from .channel import TextChannel
@@ -341,7 +340,7 @@ class Attachment(Hashable):
         """
 
         data = await self.read(use_cached=use_cached)
-        return File(io.BytesIO(data), filename=self.filename, spoiler=spoiler)
+        return File(io.BytesIO(data), filename=self.filename, description=self.description, spoiler=spoiler)
 
     def to_dict(self) -> AttachmentPayload:
         result: AttachmentPayload = {
@@ -1646,7 +1645,8 @@ class Message(PartialMessage, Hashable):
         return self.type not in (
             MessageType.default,
             MessageType.reply,
-            MessageType.application_command,
+            MessageType.chat_input_command,
+            MessageType.context_menu_command,
             MessageType.thread_starter_message,
         )
 
