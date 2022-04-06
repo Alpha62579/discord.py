@@ -150,7 +150,7 @@ class Parameter(inspect.Parameter):
         if self.annotation is empty:
             return type(self.default) if self.default not in (empty, None) else str
 
-        return self.annotation
+        return self.annotation[0] if isinstance(self.annotation, tuple) else self.annotation
 
     @property
     def displayed_default(self) -> Optional[str]:
