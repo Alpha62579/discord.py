@@ -112,8 +112,31 @@ Quick example:
 
 With this change, constructor of :class:`Client` no longer accepts ``connector`` and ``loop`` parameters.
 
-In parallel with this change, changes were made to loading and unloading of commands extension extensions and cogs, 
+In parallel with this change, changes were made to loading and unloading of commands extension extensions and cogs,
 see :ref:`migrating_2_0_commands_extension_cog_async` for more information.
+
+Intents Are Now Required
+--------------------------
+
+In earlier versions, the ``intents`` keyword argument was optional and defaulted to :meth:`Intents.default`. In order to better educate users on their intents and to also make it more explicit, this parameter is now required to pass in.
+
+For example:
+
+.. code-block:: python3
+
+    # before
+    client = discord.Client()
+
+    # after
+    intents = discord.Intents.default()
+    client = discord.Client(intents=intents)
+
+This change applies to **all** subclasses of :class:`Client`.
+
+- :class:`AutoShardedClient`
+- :class:`~discord.ext.commands.Bot`
+- :class:`~discord.ext.commands.AutoShardedBot`
+
 
 Abstract Base Classes Changes
 -------------------------------
@@ -499,7 +522,7 @@ The main differences between text channels and threads are:
         - :attr:`Permissions.create_private_threads`
         - :attr:`Permissions.send_messages_in_threads`
 
-- Threads do not have their own nsfw status, they inherit it from their parent channel.
+- Threads do not have their own NSFW status, they inherit it from their parent channel.
 
     - This means that :class:`Thread` does not have an ``nsfw`` attribute.
 
@@ -921,6 +944,22 @@ This removes the following:
 - ``commands.StoreChannelConverter``
 - ``ChannelType.store``
 
+Change in ``Guild.bans`` endpoint
+-----------------------------------
+
+Due to a breaking API change by Discord, :meth:`Guild.bans` no longer returns a list of every ban in the guild but instead is paginated using an asynchronous iterator.
+
+.. code-block:: python3
+
+    # before
+
+    bans = await guild.bans()
+
+    # after
+    async for ban in guild.bans(limit=1000):
+        ...
+
+
 Function Signature Changes
 ----------------------------
 
@@ -945,7 +984,7 @@ Parameters in the following methods are now all positional-only:
 - :meth:`Client.fetch_webhook`
 - :meth:`Client.fetch_widget`
 - :meth:`Message.add_reaction`
-- :meth:`Client.error`
+- :meth:`Client.on_error`
 - :meth:`abc.Messageable.fetch_message`
 - :meth:`abc.GuildChannel.permissions_for`
 - :meth:`DMChannel.get_partial_message`
@@ -1188,7 +1227,7 @@ As an extension to the :ref:`asyncio changes <migrating_2_0_client_async_setup>`
 
 To accommodate this, the following changes have been made:
 
-- the ``setup`` and ``teardown`` functions in extensions must now be coroutines.
+- The ``setup`` and ``teardown`` functions in extensions must now be coroutines.
 - :meth:`ext.commands.Bot.load_extension` must now be awaited.
 - :meth:`ext.commands.Bot.unload_extension` must now be awaited.
 - :meth:`ext.commands.Bot.reload_extension` must now be awaited.
@@ -1224,7 +1263,7 @@ Quick example of loading an extension:
         async with bot:
             await bot.load_extension('my_extension')
             await bot.start(TOKEN)
-    
+
     asyncio.run(main())
 
 
@@ -1388,7 +1427,7 @@ The following attributes have been removed:
 
     - Use :attr:`ext.commands.Context.clean_prefix` instead.
 
-Miscellanous Changes
+Miscellaneous Changes
 ~~~~~~~~~~~~~~~~~~~~~~
 
 - :meth:`ext.commands.Bot.add_cog` is now raising :exc:`ClientException` when a cog with the same name is already loaded.
@@ -1406,6 +1445,7 @@ Miscellanous Changes
 - ``BotMissingPermissions.missing_perms`` has been renamed to :attr:`ext.commands.BotMissingPermissions.missing_permissions`.
 - :meth:`ext.commands.Cog.cog_load` has been added as part of the :ref:`migrating_2_0_commands_extension_cog_async` changes.
 - :meth:`ext.commands.Cog.cog_unload` may now be a :term:`coroutine` due to the :ref:`migrating_2_0_commands_extension_cog_async` changes.
+- :attr:`ext.commands.Command.clean_params` type now uses a custom :class:`inspect.Parameter` to handle defaults.
 
 .. _migrating_2_0_tasks:
 

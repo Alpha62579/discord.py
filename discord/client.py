@@ -140,9 +140,11 @@ class Client:
     intents: :class:`Intents`
         The intents that you want to enable for the session. This is a way of
         disabling and enabling certain gateway events from triggering and being sent.
-        If not given, defaults to a regularly constructed :class:`Intents` class.
 
         .. versionadded:: 1.5
+
+        .. versionchanged:: 2.0
+            Parameter is now required.
     member_cache_flags: :class:`MemberCacheFlags`
         Allows for finer control over how the library caches members.
         If not given, defaults to cache as much as possible with the
@@ -207,7 +209,7 @@ class Client:
         The websocket gateway the client is currently connected to. Could be ``None``.
     """
 
-    def __init__(self, **options: Any) -> None:
+    def __init__(self, *, intents: Intents, **options: Any) -> None:
         self.loop: asyncio.AbstractEventLoop = _loop
         # self.ws is set in the connect method
         self.ws: DiscordWebSocket = None  # type: ignore
@@ -236,7 +238,7 @@ class Client:
         }
 
         self._enable_debug_events: bool = options.pop('enable_debug_events', False)
-        self._connection: ConnectionState = self._get_state(**options)
+        self._connection: ConnectionState = self._get_state(intents=intents, **options)
         self._connection.shard_count = self.shard_count
         self._closed: bool = False
         self._ready: asyncio.Event = MISSING
@@ -1392,7 +1394,7 @@ class Client:
         Bot accounts in more than 10 guilds are not allowed to create guilds.
 
         .. versionchanged:: 2.0
-            ``name`` and ``icon`` parameters are now keyword-only. The `region`` parameter has been removed.
+            ``name`` and ``icon`` parameters are now keyword-only. The ``region`` parameter has been removed.
 
         .. versionchanged:: 2.0
             This function will now raise :exc:`ValueError` instead of
