@@ -851,6 +851,9 @@ class ConnectionState:
         guild._add_thread(thread)
         if not has_thread:
             if data.get('newly_created'):
+                if thread.parent.__class__ is ForumChannel:
+                    thread.parent.last_message_id = thread.id  # type: ignore
+
                 self.dispatch('thread_create', thread)
             else:
                 self.dispatch('thread_join', thread)
@@ -1290,7 +1293,8 @@ class ConnectionState:
             _log.debug('WEBHOOKS_UPDATE referencing an unknown guild ID: %s. Discarding', data['guild_id'])
             return
 
-        channel = guild.get_channel(int(data['channel_id']))
+        channel_id = utils._get_as_snowflake(data, 'channel_id')
+        channel = guild.get_channel(channel_id)  # type: ignore # None is okay here
         if channel is not None:
             self.dispatch('webhooks_update', channel)
         else:
