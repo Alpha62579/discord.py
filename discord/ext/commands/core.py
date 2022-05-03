@@ -60,7 +60,7 @@ if TYPE_CHECKING:
 
     from discord.message import Message
 
-    from ._types import BotT, Check, ContextT, Coro, CoroFunc, Error, Hook
+    from ._types import BotT, Check, ContextT, Coro, CoroFunc, Error, Hook, UserCheck
 
 
 __all__ = (
@@ -378,7 +378,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
         except AttributeError:
             checks = kwargs.get('checks', [])
 
-        self.checks: List[Check[ContextT]] = checks
+        self.checks: List[UserCheck[ContextT]] = checks
 
         try:
             cooldown = func.__commands_cooldown__
@@ -458,7 +458,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
 
         self.params: Dict[str, Parameter] = get_signature_parameters(function, globalns)
 
-    def add_check(self, func: Check[ContextT], /) -> None:
+    def add_check(self, func: UserCheck[ContextT], /) -> None:
         """Adds a check to the command.
 
         This is the non-decorator interface to :func:`.check`.
@@ -477,7 +477,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
 
         self.checks.append(func)
 
-    def remove_check(self, func: Check[ContextT], /) -> None:
+    def remove_check(self, func: UserCheck[ContextT], /) -> None:
         """Removes a check from the command.
 
         This function is idempotent and will not raise an exception
@@ -577,11 +577,11 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
         except AttributeError:
             pass
         else:
-            injected = wrap_callback(coro)
+            injected = wrap_callback(coro)  # type: ignore
             if cog is not None:
-                await injected(cog, ctx, error)  # type: ignore
+                await injected(cog, ctx, error)
             else:
-                await injected(ctx, error)
+                await injected(ctx, error)  # type: ignore
 
         try:
             if cog is not None:
@@ -944,7 +944,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
         # the invoked subcommand is None.
         ctx.invoked_subcommand = None
         ctx.subcommand_passed = None
-        injected = hooked_wrapped_callback(self, ctx, self.callback)
+        injected = hooked_wrapped_callback(self, ctx, self.callback)  # type: ignore
         await injected(*ctx.args, **ctx.kwargs)  # type: ignore
 
     async def reinvoke(self, ctx: Context[BotT], /, *, call_hooks: bool = False) -> None:
@@ -989,7 +989,7 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
         if not asyncio.iscoroutinefunction(coro):
             raise TypeError('The error handler must be a coroutine.')
 
-        self.on_error: Error[Any] = coro
+        self.on_error: Error[CogT, Any] = coro
         return coro
 
     def has_error_handler(self) -> bool:
@@ -1098,11 +1098,11 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
             greedy = isinstance(param.converter, Greedy)
             optional = False  # postpone evaluation of if it's an optional argument
 
-            annotation = param.converter.converter if greedy else param.converter  # type: ignore  # needs conditional types
+            annotation: Any = param.converter.converter if greedy else param.converter
             origin = getattr(annotation, '__origin__', None)
             if not greedy and origin is Union:
                 none_cls = type(None)
-                union_args = annotation.__args__  # type: ignore  # this is safe
+                union_args = annotation.__args__
                 optional = union_args[-1] is none_cls
                 if len(union_args) == 2 and optional:
                     annotation = union_args[0]
@@ -1111,12 +1111,11 @@ class Command(_BaseCommand, Generic[CogT, P, T]):
             # for typing.Literal[...], typing.Optional[typing.Literal[...]], and Greedy[typing.Literal[...]], the
             # parameter signature is a literal list of it's values
             if origin is Literal:
-                name = '|'.join(f'"{v}"' if isinstance(v, str) else str(v) for v in annotation.__args__)  # type: ignore  # this is safe
+                name = '|'.join(f'"{v}"' if isinstance(v, str) else str(v) for v in annotation.__args__)
             if not param.required:
                 # We don't want None or '' to trigger the [name=value] case and instead it should
                 # do [name] since [name=None] or [name=] are not exactly useful for the user.
-                should_print = param.default if isinstance(param.default, str) else param.default is not None
-                if should_print:
+                if param.displayed_default:
                     result.append(
                         f'[{name}={param.displayed_default}]' if not greedy else f'[{name}={param.displayed_default}]...'
                     )
@@ -1547,7 +1546,7 @@ class Group(GroupMixin[CogT], Command[CogT, P, T]):
             ctx.invoked_subcommand = self.all_commands.get(trigger, None)
 
         if early_invoke:
-            injected = hooked_wrapped_callback(self, ctx, self.callback)
+            injected = hooked_wrapped_callback(self, ctx, self.callback)  # type: ignore
             await injected(*ctx.args, **ctx.kwargs)  # type: ignore
 
         ctx.invoked_parents.append(ctx.invoked_with)  # type: ignore
@@ -1746,7 +1745,7 @@ def group(
     return command(name=name, cls=cls, **attrs)
 
 
-def check(predicate: Check[ContextT], /) -> Callable[[T], T]:
+def check(predicate: UserCheck[ContextT], /) -> Check[ContextT]:
     r"""A decorator that adds a check to the :class:`.Command` or its
     subclasses. These checks could be accessed via :attr:`.Command.checks`.
 
@@ -1837,15 +1836,15 @@ def check(predicate: Check[ContextT], /) -> Callable[[T], T]:
     else:
 
         @functools.wraps(predicate)
-        async def wrapper(ctx):
-            return predicate(ctx)  # type: ignore
+        async def wrapper(ctx: ContextT):
+            return predicate(ctx)
 
         decorator.predicate = wrapper
 
     return decorator  # type: ignore
 
 
-def check_any(*checks: Check[ContextT]) -> Callable[[T], T]:
+def check_any(*checks: Check[ContextT]) -> Check[ContextT]:
     r"""A :func:`check` that is added that checks if any of the checks passed
     will pass, i.e. using logical OR.
 
@@ -1911,10 +1910,10 @@ def check_any(*checks: Check[ContextT]) -> Callable[[T], T]:
         # if we're here, all checks failed
         raise CheckAnyFailure(unwrapped, errors)
 
-    return check(predicate)
+    return check(predicate)  # type: ignore
 
 
-def has_role(item: Union[int, str], /) -> Callable[[T], T]:
+def has_role(item: Union[int, str], /) -> Check[Any]:
     """A :func:`.check` that is added that checks if the member invoking the
     command has the role specified via the name or ID specified.
 
@@ -2067,7 +2066,7 @@ def bot_has_any_role(*items: int) -> Callable[[T], T]:
     return check(predicate)
 
 
-def has_permissions(**perms: bool) -> Callable[[T], T]:
+def has_permissions(**perms: bool) -> Check[Any]:
     """A :func:`.check` that is added that checks if the member has all of
     the permissions necessary.
 
@@ -2115,7 +2114,7 @@ def has_permissions(**perms: bool) -> Callable[[T], T]:
     return check(predicate)
 
 
-def bot_has_permissions(**perms: bool) -> Callable[[T], T]:
+def bot_has_permissions(**perms: bool) -> Check[Any]:
     """Similar to :func:`.has_permissions` except checks if the bot itself has
     the permissions listed.
 
@@ -2142,7 +2141,7 @@ def bot_has_permissions(**perms: bool) -> Callable[[T], T]:
     return check(predicate)
 
 
-def has_guild_permissions(**perms: bool) -> Callable[[T], T]:
+def has_guild_permissions(**perms: bool) -> Check[Any]:
     """Similar to :func:`.has_permissions`, but operates on guild wide
     permissions instead of the current channel permissions.
 
@@ -2171,7 +2170,7 @@ def has_guild_permissions(**perms: bool) -> Callable[[T], T]:
     return check(predicate)
 
 
-def bot_has_guild_permissions(**perms: bool) -> Callable[[T], T]:
+def bot_has_guild_permissions(**perms: bool) -> Check[Any]:
     """Similar to :func:`.has_guild_permissions`, but checks the bot
     members guild permissions.
 
@@ -2197,7 +2196,7 @@ def bot_has_guild_permissions(**perms: bool) -> Callable[[T], T]:
     return check(predicate)
 
 
-def dm_only() -> Callable[[T], T]:
+def dm_only() -> Check[Any]:
     """A :func:`.check` that indicates this command must only be used in a
     DM context. Only private messages are allowed when
     using the command.
@@ -2216,7 +2215,7 @@ def dm_only() -> Callable[[T], T]:
     return check(predicate)
 
 
-def guild_only() -> Callable[[T], T]:
+def guild_only() -> Check[Any]:
     """A :func:`.check` that indicates this command must only be used in a
     guild context only. Basically, no private messages are allowed when
     using the command.
@@ -2233,7 +2232,7 @@ def guild_only() -> Callable[[T], T]:
     return check(predicate)
 
 
-def is_owner() -> Callable[[T], T]:
+def is_owner() -> Check[Any]:
     """A :func:`.check` that checks if the person invoking this command is the
     owner of the bot.
 
@@ -2251,7 +2250,7 @@ def is_owner() -> Callable[[T], T]:
     return check(predicate)
 
 
-def is_nsfw() -> Callable[[T], T]:
+def is_nsfw() -> Check[Any]:
     """A :func:`.check` that checks if the channel is a NSFW channel.
 
     This check raises a special exception, :exc:`.NSFWChannelRequired`
@@ -2315,7 +2314,7 @@ def cooldown(
 
 def dynamic_cooldown(
     cooldown: Union[BucketType, Callable[[Message], Any]],
-    type: BucketType = BucketType.default,
+    type: BucketType,
 ) -> Callable[[T], T]:
     """A decorator that adds a dynamic cooldown to a :class:`.Command`
 
@@ -2347,6 +2346,9 @@ def dynamic_cooldown(
     """
     if not callable(cooldown):
         raise TypeError("A callable must be provided")
+
+    if type is BucketType.default:
+        raise ValueError('BucketType.default cannot be used in dynamic cooldowns')
 
     def decorator(func: Union[Command, CoroFunc]) -> Union[Command, CoroFunc]:
         if isinstance(func, Command):
