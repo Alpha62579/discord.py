@@ -478,6 +478,11 @@ class BadInviteArgument(BadArgument):
     This inherits from :exc:`BadArgument`
 
     .. versionadded:: 1.5
+
+    Attributes
+    -----------
+    argument: :class:`str`
+        The invite supplied by the caller that was not valid
     """
 
     def __init__(self, argument: str) -> None:
@@ -607,7 +612,7 @@ class RangeError(BadArgument):
         if minimum is None and maximum is not None:
             label = f'no more than {maximum}'
         elif minimum is not None and maximum is None:
-            label = f'not less than {minimum}'
+            label = f'no less than {minimum}'
         elif maximum is not None and minimum is not None:
             label = f'between {minimum} and {maximum}'
 

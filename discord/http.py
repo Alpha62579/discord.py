@@ -148,6 +148,7 @@ def handle_message_parameters(
     stickers: Optional[SnowflakeList] = MISSING,
     previous_allowed_mentions: Optional[AllowedMentions] = None,
     mention_author: Optional[bool] = None,
+    thread_name: str = MISSING,
     channel_payload: Dict[str, Any] = MISSING,
 ) -> MultipartParameters:
     if files is not MISSING and file is not MISSING:
@@ -205,6 +206,9 @@ def handle_message_parameters(
 
     if flags is not MISSING:
         payload['flags'] = flags.value
+
+    if thread_name is not MISSING:
+        payload['thread_name'] = thread_name
 
     if allowed_mentions:
         if previous_allowed_mentions is not None:
@@ -343,7 +347,6 @@ class HTTPClient:
         self._locks: weakref.WeakValueDictionary = weakref.WeakValueDictionary()
         self._global_over: asyncio.Event = MISSING
         self.token: Optional[str] = None
-        self.bot_token: bool = False
         self.proxy: Optional[str] = proxy
         self.proxy_auth: Optional[aiohttp.BasicAuth] = proxy_auth
         self.http_trace: Optional[aiohttp.TraceConfig] = http_trace
@@ -468,7 +471,7 @@ class HTTPClient:
 
                             # sleep a bit
                             retry_after: float = data['retry_after']
-                            _log.warning(fmt, retry_after, bucket)
+                            _log.warning(fmt, retry_after, bucket, stack_info=True)
 
                             # check if it's a global rate limit
                             is_global = data.get('global', False)
@@ -2033,20 +2036,6 @@ class HTTPClient:
             application_id=application_id,
             guild_id=guild_id,
             command_id=command_id,
-        )
-        return self.request(r, json=payload)
-
-    def bulk_edit_guild_application_command_permissions(
-        self,
-        application_id: Snowflake,
-        guild_id: Snowflake,
-        payload: List[Dict[str, Any]],
-    ) -> Response[None]:
-        r = Route(
-            'PUT',
-            '/applications/{application_id}/guilds/{guild_id}/commands/permissions',
-            application_id=application_id,
-            guild_id=guild_id,
         )
         return self.request(r, json=payload)
 

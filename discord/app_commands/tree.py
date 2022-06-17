@@ -23,9 +23,8 @@ DEALINGS IN THE SOFTWARE.
 """
 
 from __future__ import annotations
+import logging
 import inspect
-import sys
-import traceback
 
 from typing import (
     Any,
@@ -78,6 +77,8 @@ if TYPE_CHECKING:
 __all__ = ('CommandTree',)
 
 ClientT = TypeVar('ClientT', bound='Client')
+
+_log = logging.getLogger(__name__)
 
 
 def _retrieve_guild_ids(
@@ -140,6 +141,45 @@ class CommandTree(Generic[ClientT]):
         # it's uncommon and N=5 anyway.
         self._context_menus: Dict[Tuple[str, Optional[int], int], ContextMenu] = {}
 
+    async def fetch_command(self, command_id: int, /, *, guild: Optional[Snowflake] = None) -> AppCommand:
+        """|coro|
+
+        Fetches an application command from the application.
+
+        Parameters
+        -----------
+        command_id: :class:`int`
+            The ID of the command to fetch.
+        guild: Optional[:class:`~discord.abc.Snowflake`]
+            The guild to fetch the command from. If not passed then the global command
+            is fetched instead.
+
+        Raises
+        -------
+        HTTPException
+            Fetching the command failed.
+        MissingApplicationID
+            The application ID could not be found.
+        NotFound
+            The application command was not found.
+            This could also be because the command is a guild command
+            and the guild was not specified and vice versa.
+
+        Returns
+        --------
+        :class:`~discord.app_commands.AppCommand`
+            The application command.
+        """
+        if self.client.application_id is None:
+            raise MissingApplicationID
+
+        if guild is None:
+            command = await self._http.get_global_command(self.client.application_id, command_id)
+        else:
+            command = await self._http.get_guild_command(self.client.application_id, guild.id, command_id)
+
+        return AppCommand(data=command, state=self._state)
+
     async def fetch_commands(self, *, guild: Optional[Snowflake] = None) -> List[AppCommand]:
         """|coro|
 
@@ -184,8 +224,7 @@ class CommandTree(Generic[ClientT]):
         """Copies all global commands to the specified guild.
 
         This method is mainly available for development purposes, as it allows you
-        to copy your global commands over to a testing guild easily and prevent waiting
-        an hour for the propagation.
+        to copy your global commands over to a testing guild easily.
 
         Note that this method will *override* pre-existing guild commands that would conflict.
 
@@ -284,8 +323,11 @@ class CommandTree(Generic[ClientT]):
                 if found and not override:
                     raise CommandAlreadyRegistered(name, guild_id)
 
+                # If the key is found and overridden then it shouldn't count as an extra addition
+                # read as `0 if override and found else 1` if confusing
+                to_add = not (override and found)
                 total = sum(1 for _, g, t in self._context_menus if g == guild_id and t == type)
-                if total + found > 5:
+                if total + to_add > 5:
                     raise CommandLimitReached(guild_id=guild_id, limit=5, type=AppCommandType(type))
                 data[key] = command
 
@@ -316,7 +358,9 @@ class CommandTree(Generic[ClientT]):
                 found = name in commands
                 if found and not override:
                     raise CommandAlreadyRegistered(name, guild_id)
-                if len(commands) + found > 100:
+
+                to_add = not (override and found)
+                if len(commands) + to_add > 100:
                     raise CommandLimitReached(guild_id=guild_id, limit=100)
 
             # Actually add the command now that it has been verified to be okay.
@@ -327,7 +371,9 @@ class CommandTree(Generic[ClientT]):
             found = name in self._global_commands
             if found and not override:
                 raise CommandAlreadyRegistered(name, None)
-            if len(self._global_commands) + found > 100:
+
+            to_add = not (override and found)
+            if len(self._global_commands) + to_add > 100:
                 raise CommandLimitReached(guild_id=None, limit=100)
             self._global_commands[name] = root
 
@@ -730,8 +776,8 @@ class CommandTree(Generic[ClientT]):
 
         A callback that is called when any command raises an :exc:`AppCommandError`.
 
-        The default implementation prints the traceback to stderr if the command does
-        not have any error handlers attached to it.
+        The default implementation logs the exception using the library logger
+        if the command does not have any error handlers attached to it.
 
         To get the command that failed, :attr:`discord.Interaction.command` should
         be used.
@@ -749,11 +795,9 @@ class CommandTree(Generic[ClientT]):
             if command._has_any_error_handlers():
                 return
 
-            print(f'Ignoring exception in command {command.name!r}:', file=sys.stderr)
+            _log.error('Ignoring exception in command %r', command.name, exc_info=error)
         else:
-            print(f'Ignoring exception in command tree:', file=sys.stderr)
-
-        traceback.print_exception(error.__class__, error, error.__traceback__, file=sys.stderr)
+            _log.error('Ignoring exception in command tree', exc_info=error)
 
     def error(self, coro: ErrorFunc) -> ErrorFunc:
         """A decorator that registers a coroutine as a local error handler.
@@ -905,9 +949,6 @@ class CommandTree(Generic[ClientT]):
         Syncs the application commands to Discord.
 
         This must be called for the application commands to show up.
-
-        Global commands take up to 1-hour to propagate but guild
-        commands propagate instantly.
 
         Parameters
         -----------
