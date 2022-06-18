@@ -373,6 +373,7 @@ class DiscordWebSocket:
         ws.session_id = session
         ws.sequence = sequence
         ws._max_heartbeat_timeout = client._connection.heartbeat_timeout
+        ws._mobile = client._mobile
 
         if client._enable_debug_events:
             ws.send = ws.debug_send
