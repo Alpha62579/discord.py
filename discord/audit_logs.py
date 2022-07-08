@@ -33,6 +33,7 @@ from .invite import Invite
 from .mixins import Hashable
 from .object import Object
 from .permissions import PermissionOverwrite, Permissions
+from .automod import AutoModTrigger, AutoModRuleAction, AutoModPresets
 
 __all__ = (
     'AuditLogDiff',
@@ -62,12 +63,14 @@ if TYPE_CHECKING:
     from .types.role import Role as RolePayload
     from .types.snowflake import Snowflake
     from .types.command import ApplicationCommandPermissions
+    from .types.automod import AutoModerationTriggerMetadata, AutoModerationAction
     from .user import User
     from .stage_instance import StageInstance
     from .sticker import GuildSticker
     from .threads import Thread
     from .integrations import PartialIntegration
-    from .app_commands import AppCommand, AppCommandPermissions
+    from .app_commands import AppCommand
+    from .automod import AutoModRule, AutoModTrigger
 
     TargetType = Union[
         Guild,
@@ -82,6 +85,7 @@ if TYPE_CHECKING:
         Thread,
         Object,
         PartialIntegration,
+        AutoModRule,
         None,
     ]
 
@@ -98,24 +102,16 @@ def _transform_snowflake(entry: AuditLogEntry, data: Snowflake) -> int:
     return int(data)
 
 
-def _transform_app_command_permissions(
-    entry: AuditLogEntry, data: ApplicationCommandPermissions
-) -> Optional[AppCommandPermissions]:
-    # avoid circular import
-    from discord.app_commands.models import AppCommandPermissions
-
-    if data is None:
-        return None
-
-    state = entry._state
-    guild = entry.guild
-    return AppCommandPermissions(data=data, guild=guild, state=state)
-
-
 def _transform_channel(entry: AuditLogEntry, data: Optional[Snowflake]) -> Optional[Union[abc.GuildChannel, Object]]:
     if data is None:
         return None
     return entry.guild.get_channel(int(data)) or Object(id=data)
+
+
+def _transform_channels_or_threads(
+    entry: AuditLogEntry, data: List[Snowflake]
+) -> List[Union[abc.GuildChannel, Thread, Object]]:
+    return [entry.guild.get_channel_or_thread(int(data)) or Object(id=data) for data in data]
 
 
 def _transform_member_id(entry: AuditLogEntry, data: Optional[Snowflake]) -> Union[Member, User, None]:
@@ -128,6 +124,10 @@ def _transform_guild_id(entry: AuditLogEntry, data: Optional[Snowflake]) -> Opti
     if data is None:
         return None
     return entry._state._get_guild(int(data))
+
+
+def _transform_roles(entry: AuditLogEntry, data: List[Snowflake]) -> List[Union[Role, Object]]:
+    return [entry.guild.get_role(int(role_id)) or Object(role_id) for role_id in data]
 
 
 def _transform_overwrites(
@@ -183,6 +183,24 @@ def _guild_hash_transformer(path: str) -> Callable[[AuditLogEntry, Optional[str]
         return Asset._from_guild_image(entry._state, entry.guild.id, data, path=path)
 
     return _transform
+
+
+def _transform_automod_trigger_metadata(
+    entry: AuditLogEntry, data: AutoModerationTriggerMetadata
+) -> Optional[AutoModTrigger]:
+    if data is None:
+        return None
+
+    # discord doesn't provide the type of the trigger
+    # have to infer from the data and present keys
+    if 'presets' in data:
+        return AutoModTrigger(presets=AutoModPresets._from_value(data['presets']))  # type: ignore
+
+    return AutoModTrigger(**data)
+
+
+def _transform_automod_actions(entry: AuditLogEntry, data: List[AutoModerationAction]) -> List[AutoModRuleAction]:
+    return [AutoModRuleAction.from_data(action) for action in data]
 
 
 E = TypeVar('E', bound=enums.Enum)
@@ -275,22 +293,41 @@ class AuditLogChanges:
         'entity_type':                   (None, _enum_transformer(enums.EntityType)),
         'preferred_locale':              (None, _enum_transformer(enums.Locale)),
         'image_hash':                    ('cover_image', _transform_cover_image),
-        'app_command_permission_update': ('app_command_permissions', _transform_app_command_permissions),
+        'trigger_type':                  (None, _enum_transformer(enums.AutoModRuleTriggerType)),
+        'event_type':                    (None, _enum_transformer(enums.AutoModRuleEventType)),
+        'trigger_metadata':              ('trigger', _transform_automod_trigger_metadata),
+        'actions':                       (None, _transform_automod_actions),
+        'exempt_channels':               (None, _transform_channels_or_threads),
+        'exempt_roles':                  (None, _transform_roles),
     }
     # fmt: on
 
     def __init__(self, entry: AuditLogEntry, data: List[AuditLogChangePayload]):
         self.before: AuditLogDiff = AuditLogDiff()
         self.after: AuditLogDiff = AuditLogDiff()
+        # special case entire process since each
+        # element in data is a different target
+        # key is the target id
+        if entry.action is enums.AuditLogAction.app_command_permission_update:
+            self.before.app_command_permissions = []
+            self.after.app_command_permissions = []
+
+            for elem in data:
+                self._handle_app_command_permissions(
+                    self.before,
+                    entry,
+                    elem.get('old_value'),  # type: ignore # value will be an ApplicationCommandPermissions if present
+                )
+
+                self._handle_app_command_permissions(
+                    self.after,
+                    entry,
+                    elem.get('new_value'),  # type: ignore # value will be an ApplicationCommandPermissions if present
+                )
+            return
 
         for elem in data:
-            # special case entire process since each
-            # element in data is a different target
-            # key is the target id
-            if entry.action is enums.AuditLogAction.app_command_permission_update:
-                attr = entry.action.name
-            else:
-                attr = elem['key']
+            attr = elem['key']
 
             # special cases for role add/remove
             if attr == '$add':
@@ -360,6 +397,22 @@ class AuditLogChanges:
 
         setattr(second, 'roles', data)
 
+    def _handle_app_command_permissions(
+        self,
+        diff: AuditLogDiff,
+        entry: AuditLogEntry,
+        data: Optional[ApplicationCommandPermissions],
+    ):
+        if data is None:
+            return
+
+        # avoid circular import
+        from discord.app_commands import AppCommandPermissions
+
+        state = entry._state
+        guild = entry.guild
+        diff.app_command_permissions.append(AppCommandPermissions(data=data, guild=guild, state=state))
+
 
 class _AuditLogProxy:
     def __init__(self, **kwargs: Any) -> None:
@@ -392,6 +445,12 @@ class _AuditLogProxyStageInstanceAction(_AuditLogProxy):
 
 class _AuditLogProxyMessageBulkDelete(_AuditLogProxy):
     count: int
+
+
+class _AuditLogProxyAutoModAction(_AuditLogProxy):
+    automod_rule_name: str
+    automod_rule_trigger_type: str
+    channel: Union[abc.GuildChannel, Thread]
 
 
 class AuditLogEntry(Hashable):
@@ -443,6 +502,7 @@ class AuditLogEntry(Hashable):
         users: Dict[int, User],
         integrations: Dict[int, PartialIntegration],
         app_commands: Dict[int, AppCommand],
+        automod_rules: Dict[int, AutoModRule],
         data: AuditLogEntryPayload,
         guild: Guild,
     ):
@@ -451,6 +511,7 @@ class AuditLogEntry(Hashable):
         self._users: Dict[int, User] = users
         self._integrations: Dict[int, PartialIntegration] = integrations
         self._app_commands: Dict[int, AppCommand] = app_commands
+        self._automod_rules: Dict[int, AutoModRule] = automod_rules
         self._from_data(data)
 
     def _from_data(self, data: AuditLogEntryPayload) -> None:
@@ -469,6 +530,7 @@ class AuditLogEntry(Hashable):
             _AuditLogProxyPinAction,
             _AuditLogProxyStageInstanceAction,
             _AuditLogProxyMessageBulkDelete,
+            _AuditLogProxyAutoModAction,
             Member, User, None, PartialIntegration,
             Role, Object
         ] = None
@@ -500,6 +562,16 @@ class AuditLogEntry(Hashable):
                     channel=self.guild.get_channel_or_thread(channel_id) or Object(id=channel_id),
                     message_id=int(extra['message_id']),
                 )
+            elif self.action is enums.AuditLogAction.automod_block_message:
+                channel_id = int(extra['channel_id'])
+                self.extra = _AuditLogProxyAutoModAction(
+                    automod_rule_name=extra['auto_moderation_rule_name'],
+                    automod_rule_trigger_type=enums.try_enum(
+                        enums.AutoModRuleTriggerType, extra['auto_moderation_rule_trigger_type']
+                    ),
+                    channel=self.guild.get_channel_or_thread(channel_id) or Object(id=channel_id),
+                )
+
             elif self.action.name.startswith('overwrite_'):
                 # the overwrite_ actions have a dict with some information
                 instance_id = int(extra['id'])
@@ -660,3 +732,6 @@ class AuditLogEntry(Hashable):
 
     def _convert_target_integration_or_app_command(self, target_id: int) -> Union[PartialIntegration, AppCommand, Object]:
         return self._get_integration_by_app_id(target_id) or self._get_app_command(target_id) or Object(target_id)
+
+    def _convert_target_auto_moderation(self, target_id: int) -> Union[AutoModRule, Object]:
+        return self._automod_rules.get(target_id) or Object(target_id)
