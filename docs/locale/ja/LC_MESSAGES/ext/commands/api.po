@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: discordpy\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-06-23 08:08+0000\n"
-"PO-Revision-Date: 2022-06-29 12:06\n"
+"POT-Creation-Date: 2022-08-01 08:28+0000\n"
+"PO-Revision-Date: 2022-08-01 09:38\n"
 "Last-Translator: \n"
 "Language-Team: Japanese\n"
 "MIME-Version: 1.0\n"
@@ -824,8 +824,8 @@ msgid "The emojis that the connected client has."
 msgstr "接続したクライアントが利用できる絵文字。"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.emojis:3
-msgid "List[:class:`.Emoji`]"
-msgstr "List[:class:`.Emoji`]"
+msgid "Sequence[:class:`.Emoji`]"
+msgstr "Sequence[:class:`.Emoji`]"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.extensions:1
 msgid "A read-only mapping of extension name to extension."
@@ -1482,8 +1482,8 @@ msgid "The guilds that the connected client is a member of."
 msgstr "接続したクライアントがメンバーとして参加しているギルド。"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.guilds:3
-msgid "List[:class:`.Guild`]"
-msgstr "List[:class:`.Guild`]"
+msgid "Sequence[:class:`.Guild`]"
+msgstr "Sequence[:class:`.Guild`]"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.bot.BotBase.hybrid_command:1
 #: ../../../discord/ext/commands/hybrid.py:docstring of discord.ext.commands.hybrid.HybridGroup.command:1
@@ -1685,8 +1685,8 @@ msgid "This returns only up to 128 most recent private channels due to an intern
 msgstr "Discordでのプライベートチャンネルの取扱いは内部的に処理されているため、これは最新のプライベートチャンネルから最大128個までしか取得できません。"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.private_channels:8
-msgid "List[:class:`.abc.PrivateChannel`]"
-msgstr "List[:class:`.abc.PrivateChannel`]"
+msgid "Sequence[:class:`.abc.PrivateChannel`]"
+msgstr "Sequence[:class:`.abc.PrivateChannel`]"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.bot.BotBase.process_commands:3
 msgid "This function processes the commands that have been registered to the bot and other groups. Without this coroutine, none of the commands will be triggered."
@@ -1901,8 +1901,8 @@ msgid "The stickers that the connected client has."
 msgstr "接続したクライアントが持つスタンプ。"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.stickers:5
-msgid "List[:class:`.GuildSticker`]"
-msgstr "List[:class:`.GuildSticker`]"
+msgid "Sequence[:class:`.GuildSticker`]"
+msgstr "Sequence[:class:`.GuildSticker`]"
 
 #: ../../../discord/ext/commands/bot.py:docstring of discord.ext.commands.Bot.tree:1
 msgid "The command tree responsible for handling the application commands in this bot."
@@ -2928,6 +2928,7 @@ msgid "This is similar to :func:`.on_command_error` except only applying to the 
 msgstr "これは :func:`.on_command_error` に似ていますが、コグ内のコマンドにのみ適用されます。"
 
 #: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_command_error:7
+#: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_app_command_error:7
 #: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_before_invoke:5
 #: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_after_invoke:5
 msgid "This **must** be a coroutine."
@@ -2940,6 +2941,22 @@ msgstr "エラーが発生した呼び出しコンテキスト。"
 #: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_command_error:11
 msgid "The error that happened."
 msgstr "発生したエラー"
+
+#: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_app_command_error:1
+msgid "A special method that is called whenever an error within an application command is dispatched inside this cog."
+msgstr "このコグ内でアプリケーションコマンドのエラーが発生するたびに呼び出される特別なメソッド。"
+
+#: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_app_command_error:4
+msgid "This is similar to :func:`discord.app_commands.CommandTree.on_error` except only applying to the application commands inside this cog."
+msgstr "これは :func:`discord.app_commands.CommandTree.on_error` に似ていますが、コグ内のアプリケーションコマンドにのみ適用されます。"
+
+#: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_app_command_error:9
+msgid "The interaction that is being handled."
+msgstr "処理中のインタラクション。"
+
+#: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_app_command_error:11
+msgid "The exception that was raised."
+msgstr "発生した例外。"
 
 #: ../../../discord/ext/commands/cog.py:docstring of discord.ext.commands.cog.Cog.cog_before_invoke:1
 msgid "A special method that acts as a cog local pre-invoke hook."
@@ -4342,6 +4359,27 @@ msgstr "Union[:class:`~discord.User`, :class:`.Member`]: このコンテキス�
 msgid "Union[:class:`.Member`, :class:`.ClientUser`]: Similar to :attr:`.Guild.me` except it may return the :class:`.ClientUser` in private message contexts."
 msgstr "Union[:class:`.Member`, :class:`ClientUser`]: これはプライベートメッセージコンテキストでは :class:`ClientUser` を返すことを除いて、 :attr:`.Guild.me` と同様です。"
 
+#: ../../docstring of discord.ext.commands.Context.permissions:1
+msgid "Returns the resolved permissions for the invoking user in this channel. Shorthand for :meth:`.abc.GuildChannel.permissions_for` or :attr:`.Interaction.permissions`."
+msgstr "このチャンネルでのコマンドを実行したユーザーの解決された権限を返します。 :meth:`.abc.GuildChannel.permissions_for` と :attr:`.Interaction.permissions` のショートカットです。"
+
+#: ../../docstring of discord.ext.commands.Context.permissions:6
+#: ../../docstring of discord.ext.commands.Context.bot_permissions:13
+msgid ":class:`.Permissions`"
+msgstr ":class:`.Permissions`"
+
+#: ../../docstring of discord.ext.commands.Context.bot_permissions:1
+msgid "Returns the resolved permissions for the bot in this channel. Shorthand for :meth:`.abc.GuildChannel.permissions_for` or :attr:`.Interaction.app_permissions`."
+msgstr "このチャンネルでのボットの解決された権限を返します。 :meth:`.abc.GuildChannel.permissions_for` と :attr:`.Interaction.app_permissions` のショートカットです。"
+
+#: ../../docstring of discord.ext.commands.Context.bot_permissions:4
+msgid "For interaction-based commands, this will reflect the effective permissions for :class:`Context` calls, which may differ from calls through other :class:`.abc.Messageable` endpoints, like :attr:`channel`."
+msgstr "インタラクションベースのコマンドでは、これは :class:`Context` 呼び出しにて有効な権限を反映していて、 :attr:`channel` のような他の :class:`.abc.Messageable` に適用されるものと異なる可能性があります。"
+
+#: ../../docstring of discord.ext.commands.Context.bot_permissions:8
+msgid "Notably, sending messages, embedding links, and attaching files are always permitted, while reading messages might not be."
+msgstr "特に、メッセージの送信、埋め込みリンク、ファイルの添付は常に許可されていますが、メッセージを読むことはできない場合があります。"
+
 #: ../../../discord/ext/commands/context.py:docstring of discord.ext.commands.Context.voice_client:1
 msgid "A shortcut to :attr:`.Guild.voice_client`\\, if applicable."
 msgstr "該当する場合は、 :attr:`.Guild.voice_client` へのショートカット。"
@@ -4517,14 +4555,18 @@ msgid "Due to a limitation with the Discord API, the :class:`.Message` objects r
 msgstr "Discord APIの制限により、このメソッドの返した :class:`.Message` オブジェクトには、完全な :attr:`Message.reactions` のデータが含まれていません。"
 
 #: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:11
+msgid "You do not have the permission to retrieve pinned messages."
+msgstr "ピン留めされたメッセージの取得に必要な権限がない場合。"
+
+#: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:12
 msgid "Retrieving the pinned messages failed."
 msgstr "ピン留めされたメッセージの取得に失敗しました。"
 
-#: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:13
+#: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:14
 msgid "The messages that are currently pinned."
 msgstr "現時点でピン留めされているメッセージ。"
 
-#: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:14
+#: ../../../discord/ext/commands/context.py:docstring of discord.abc.Messageable.pins:15
 msgid "List[:class:`~discord.Message`]"
 msgstr "List[:class:`~discord.Message`]"
 
@@ -5040,8 +5082,8 @@ msgid "For interaction based contexts the conversion error is propagated rather 
 msgstr "インタラクションベースのコンテキストではアプリケーションコマンドでのユーザーエクスペリエンスの差異のため変換エラーは無視されず伝播されます。"
 
 #: ../../../discord/ext/commands/converter.py:docstring of discord.ext.commands.converter.Range:1
-msgid "A special converter that can be applied to a parameter to require a numeric type to fit within the range provided."
-msgstr "与えられた範囲内に収まる数値型を必要とするパラメータに適用できる特別なコンバーター。"
+msgid "A special converter that can be applied to a parameter to require a numeric or string type to fit within the range provided."
+msgstr "与えられた範囲内に収まる数値または文字列型を必要とするパラメータに適用できる特別なコンバーター。"
 
 #: ../../../discord/ext/commands/converter.py:docstring of discord.ext.commands.converter.Range:4
 msgid "During type checking time this is equivalent to :obj:`typing.Annotated` so type checkers understand the intent of the code."
@@ -5066,6 +5108,10 @@ msgstr "``Range[int, 1, 10]`` は最小値1、最大値10を意味します。"
 #: ../../../discord/ext/commands/converter.py:docstring of discord.ext.commands.converter.Range:13
 msgid "Inside a :class:`HybridCommand` this functions equivalently to :class:`discord.app_commands.Range`."
 msgstr ":class:`HybridCommand` 内では、この関数は :class:`discord.app_commands.Range` と同様に動作します。"
+
+#: ../../../discord/ext/commands/converter.py:docstring of discord.ext.commands.converter.Range:15
+msgid "If the value cannot be converted to the provided type or is outside the given range, :class:`~.ext.commands.BadArgument` or :class:`~.ext.commands.RangeError` is raised to the appropriate error handlers respectively."
+msgstr "もし値が渡された型に変換できず、または指定された範囲外である場合、:class:`~.ext.commands.BadArgument` や :class:`~.ext.commands.RangeError` が適切なエラーハンドラに送出されます。"
 
 #: ../../../discord/ext/commands/converter.py:docstring of discord.ext.commands.converter.run_converters:3
 msgid "Runs converters for a given converter, argument, and parameter."
@@ -5772,8 +5818,8 @@ msgid "The value that was out of range."
 msgstr "範囲外であった値。"
 
 #: ../../../discord/ext/commands/errors.py:docstring of discord.ext.commands.errors.RangeError:23
-msgid "Union[:class:`int`, :class:`float`]"
-msgstr "Union[:class:`int`, :class:`float`]"
+msgid "Union[:class:`int`, :class:`float`, :class:`str`]"
+msgstr "Union[:class:`int`, :class:`float`, :class:`str`]"
 
 #: ../../../discord/ext/commands/errors.py:docstring of discord.ext.commands.errors.MissingPermissions:1
 msgid "Exception raised when the command invoker lacks permissions to run a command."

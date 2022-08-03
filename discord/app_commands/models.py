@@ -145,7 +145,7 @@ class AppCommand(Hashable):
         The application command's name.
     description: :class:`str`
         The application command's description.
-    options: List[Union[:class:`AppCommand`, :class:`AppCommandGroup`]]
+    options: List[Union[:class:`Argument`, :class:`AppCommandGroup`]]
         A list of options.
     default_member_permissions: Optional[:class:`~discord.Permissions`]
         The default member permissions that can run this command.
@@ -216,6 +216,11 @@ class AppCommand(Hashable):
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} id={self.id!r} name={self.name!r} type={self.type!r}>'
+
+    @property
+    def mention(self) -> str:
+        """:class:`str`: Returns a string that allows you to mention the given AppCommand."""
+        return f'</{self.name}:{self.id}>'
 
     @property
     def guild(self) -> Optional[Guild]:
@@ -751,6 +756,10 @@ class Argument:
         The minimum supported value for this parameter.
     max_value: Optional[Union[:class:`int`, :class:`float`]]
         The maximum supported value for this parameter.
+    min_length: Optional[:class:`int`]
+        The minimum allowed length for this parameter.
+    max_length: Optional[:class:`int`]
+        The maximum allowed length for this parameter.
     autocomplete: :class:`bool`
         Whether the argument has autocomplete.
     """
@@ -764,6 +773,8 @@ class Argument:
         'channel_types',
         'min_value',
         'max_value',
+        'min_length',
+        'max_length',
         'autocomplete',
         'parent',
         '_state',
@@ -786,6 +797,8 @@ class Argument:
         self.required: bool = data.get('required', False)
         self.min_value: Optional[Union[int, float]] = data.get('min_value')
         self.max_value: Optional[Union[int, float]] = data.get('max_value')
+        self.min_length: Optional[int] = data.get('min_length')
+        self.max_length: Optional[int] = data.get('max_length')
         self.autocomplete: bool = data.get('autocomplete', False)
         self.channel_types: List[ChannelType] = [try_enum(ChannelType, d) for d in data.get('channel_types', [])]
         self.choices: List[Choice[Union[int, float, str]]] = [
@@ -802,6 +815,8 @@ class Argument:
             'channel_types': [channel_type.value for channel_type in self.channel_types],
             'min_value': self.min_value,
             'max_value': self.max_value,
+            'min_length': self.min_length,
+            'max_length': self.max_length,
             'autocomplete': self.autocomplete,
             'options': [],
         }  # type: ignore # Type checker does not understand this literal.
@@ -820,7 +835,7 @@ class AppCommandGroup:
         The name of the subcommand.
     description: :class:`str`
         The description of the subcommand.
-    options: List[Union[:class:`AppCommand`, :class:`AppCommandGroup`]]
+    options: List[Union[:class:`Argument`, :class:`AppCommandGroup`]]
         A list of options.
     parent: Union[:class:`AppCommand`, :class:`AppCommandGroup`]
         The parent application command.
@@ -844,6 +859,32 @@ class AppCommandGroup:
 
     def __repr__(self) -> str:
         return f'<{self.__class__.__name__} name={self.name!r} type={self.type!r}>'
+
+    @property
+    def qualified_name(self) -> str:
+        """:class:`str`: Returns the fully qualified command name.
+
+        The qualified name includes the parent name as well. For example,
+        in a command like ``/foo bar`` the qualified name is ``foo bar``.
+        """
+        # A B C
+        #     ^ self
+        #   ^ parent
+        # ^ grandparent
+        names = [self.name, self.parent.name]
+        if isinstance(self.parent, AppCommandGroup):
+            names.append(self.parent.parent.name)
+
+        return ' '.join(reversed(names))
+
+    @property
+    def mention(self) -> str:
+        """:class:`str`: Returns a string that allows you to mention the given AppCommandGroup."""
+        if isinstance(self.parent, AppCommand):
+            base_command = self.parent
+        else:
+            base_command = self.parent.parent
+        return f'</{self.qualified_name}:{base_command.id}>'  # type: ignore
 
     def _from_data(self, data: ApplicationCommandOption) -> None:
         self.type: AppCommandOptionType = try_enum(AppCommandOptionType, data['type'])

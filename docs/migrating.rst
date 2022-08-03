@@ -864,22 +864,47 @@ The return type of the following methods has been changed to an :term:`asynchron
 The ``NoMoreItems`` exception was removed as calling :func:`anext` or :meth:`~object.__anext__` on an
 :term:`asynchronous iterator` will now raise :class:`StopAsyncIteration`.
 
-Removal of ``Embed.Empty``
----------------------------
+Changing certain lists to be lazy sequences instead
+-----------------------------------------------------
+
+In order to improve performance when calculating the length of certain lists, certain attributes were changed to return a sequence rather than a :class:`list`.
+
+A sequence is similar to a :class:`list` except it is read-only. In order to get a list again you can call :class:`list` on the resulting sequence.
+
+The following properties were changed to return a sequence instead of a list:
+
+- :attr:`Client.guilds`
+- :attr:`Client.emojis`
+- :attr:`Client.private_channels`
+- :attr:`Guild.roles`
+- :attr:`Guild.channels`
+- :attr:`Guild.members`
+
+This change should be transparent, unless you are modifying the sequence by doing things such as ``list.append``.
+
+
+Embed Changes
+--------------
 
 Originally, embeds used a special sentinel to denote emptiness or remove an attribute from display. The ``Embed.Empty`` sentinel was made when Discord's embed design was in a nebulous state of flux. Since then, the embed design has stabilised and thus the sentinel is seen as legacy.
 
 Therefore, ``Embed.Empty`` has been removed in favour of ``None``.
+
+Additionally, ``Embed.__eq__`` has been implemented thus embeds becoming unhashable (e.g. using them in sets or dict keys).
 
 .. code-block:: python
 
     # before
     embed = discord.Embed(title='foo')
     embed.title = discord.Embed.Empty
+    embed == embed.copy() # False
 
     # after
     embed = discord.Embed(title='foo')
     embed.title = None
+    embed == embed.copy() # True
+    {embed, embed} # Raises TypeError
+
 
 
 Removal of ``InvalidArgument`` Exception

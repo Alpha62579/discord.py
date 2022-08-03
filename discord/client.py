@@ -263,7 +263,15 @@ class Client:
         .. versionadded:: 2.0
     mobile: :class:`bool`
         Whether to make the bot appear to be running on mobile. Defaults to ``False``.
-        
+
+        .. versionadded:: 2.0
+    max_ratelimit_timeout: Optional[:class:`float`]
+        The maximum number of seconds to wait when a non-global rate limit is encountered.
+        If a request requires sleeping for more than the seconds passed in, then
+        :exc:`~discord.RateLimited` will be raised. By default, there is no timeout limit.
+        In order to prevent misuse and unnecessary bans, the minimum value this can be
+        set to is ``30.0`` seconds.
+
         .. versionadded:: 2.0
 
     Attributes
@@ -284,12 +292,14 @@ class Client:
         proxy_auth: Optional[aiohttp.BasicAuth] = options.pop('proxy_auth', None)
         unsync_clock: bool = options.pop('assume_unsync_clock', True)
         http_trace: Optional[aiohttp.TraceConfig] = options.pop('http_trace', None)
+        max_ratelimit_timeout: Optional[float] = options.pop('max_ratelimit_timeout', None)
         self.http: HTTPClient = HTTPClient(
             self.loop,
             proxy=proxy,
             proxy_auth=proxy_auth,
             unsync_clock=unsync_clock,
             http_trace=http_trace,
+            max_ratelimit_timeout=max_ratelimit_timeout,
         )
 
         self._handlers: Dict[str, Callable[..., None]] = {
@@ -365,18 +375,18 @@ class Client:
         return self._connection.user
 
     @property
-    def guilds(self) -> List[Guild]:
-        """List[:class:`.Guild`]: The guilds that the connected client is a member of."""
+    def guilds(self) -> Sequence[Guild]:
+        """Sequence[:class:`.Guild`]: The guilds that the connected client is a member of."""
         return self._connection.guilds
 
     @property
-    def emojis(self) -> List[Emoji]:
-        """List[:class:`.Emoji`]: The emojis that the connected client has."""
+    def emojis(self) -> Sequence[Emoji]:
+        """Sequence[:class:`.Emoji`]: The emojis that the connected client has."""
         return self._connection.emojis
 
     @property
-    def stickers(self) -> List[GuildSticker]:
-        """List[:class:`.GuildSticker`]: The stickers that the connected client has.
+    def stickers(self) -> Sequence[GuildSticker]:
+        """Sequence[:class:`.GuildSticker`]: The stickers that the connected client has.
 
         .. versionadded:: 2.0
         """
@@ -391,8 +401,8 @@ class Client:
         return utils.SequenceProxy(self._connection._messages or [])
 
     @property
-    def private_channels(self) -> List[PrivateChannel]:
-        """List[:class:`.abc.PrivateChannel`]: The private channels that the connected client is participating on.
+    def private_channels(self) -> Sequence[PrivateChannel]:
+        """Sequence[:class:`.abc.PrivateChannel`]: The private channels that the connected client is participating on.
 
         .. note::
 

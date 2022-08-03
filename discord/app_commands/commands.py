@@ -134,7 +134,7 @@ else:
     AutocompleteCallback = Callable[..., Coro[T]]
 
 
-CheckInputParameter = Union['Command[Any, ..., Any]', 'ContextMenu', CommandCallback, ContextMenuCallback]
+CheckInputParameter = Union['Command[Any, ..., Any]', 'ContextMenu', 'CommandCallback[Any, ..., Any]', ContextMenuCallback]
 
 # The re module doesn't support \p{} so we have to list characters from Thai and Devanagari manually.
 THAI_COMBINING = r'\u0e31-\u0e3a\u0e47-\u0e4e'
@@ -598,7 +598,7 @@ class Command(Generic[GroupT, P, T]):
 
         return base
 
-    async def _invoke_error_handler(self, interaction: Interaction, error: AppCommandError) -> None:
+    async def _invoke_error_handlers(self, interaction: Interaction, error: AppCommandError) -> None:
         # These type ignores are because the type checker can't narrow this type properly.
         if self.on_error is not None:
             if self.binding is not None:
@@ -612,6 +612,10 @@ class Command(Generic[GroupT, P, T]):
 
             if parent.parent is not None:
                 await parent.parent.on_error(interaction, error)
+
+        binding_error_handler = getattr(self.binding, '__discord_app_commands_error_handler__', None)
+        if binding_error_handler is not None:
+            await binding_error_handler(interaction, error)
 
     def _has_any_error_handlers(self) -> bool:
         if self.on_error is not None:
@@ -1139,6 +1143,9 @@ class Group:
     __discord_app_commands_guild_only__: bool = MISSING
     __discord_app_commands_default_permissions__: Optional[Permissions] = MISSING
     __discord_app_commands_has_module__: bool = False
+    __discord_app_commands_error_handler__: Optional[
+        Callable[[Interaction, AppCommandError], Coroutine[Any, Any, None]]
+    ] = None
 
     def __init_subclass__(
         cls,

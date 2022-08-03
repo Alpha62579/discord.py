@@ -28,7 +28,21 @@ import discord
 from discord import app_commands
 from discord.utils import maybe_coroutine
 
-from typing import Any, Callable, ClassVar, Dict, Generator, Iterable, List, Optional, TYPE_CHECKING, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    ClassVar,
+    Coroutine,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    TYPE_CHECKING,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from ._types import _BaseCommand, BotT
 
@@ -254,6 +268,9 @@ class Cog(metaclass=CogMeta):
     __cog_listeners__: List[Tuple[str, str]]
     __cog_is_app_commands_group__: ClassVar[bool] = False
     __cog_app_commands_group__: Optional[app_commands.Group]
+    __discord_app_commands_error_handler__: Optional[
+        Callable[[discord.Interaction, app_commands.AppCommandError], Coroutine[Any, Any, None]]
+    ]
 
     def __new__(cls, *args: Any, **kwargs: Any) -> Self:
         # For issue 426, we need to store a copy of the command objects
@@ -311,12 +328,25 @@ class Cog(metaclass=CogMeta):
                     if self.__cog_app_commands_group__:
                         children.append(app_command)
 
+        if Cog._get_overridden_method(self.cog_app_command_error) is not None:
+            error_handler = self.cog_app_command_error
+        else:
+            error_handler = None
+
+        self.__discord_app_commands_error_handler__ = error_handler
+
         for command in cls.__cog_app_commands__:
             copy = command._copy_with(parent=self.__cog_app_commands_group__, binding=self)
 
             # Update set bindings
             if copy._attr:
                 setattr(self, copy._attr, copy)
+
+            if isinstance(copy, app_commands.Group):
+                copy.__discord_app_commands_error_handler__ = error_handler
+                for command in copy._children.values():
+                    if isinstance(command, app_commands.Group):
+                        command.__discord_app_commands_error_handler__ = error_handler
 
             children.append(copy)
 
@@ -344,6 +374,17 @@ class Cog(metaclass=CogMeta):
             defined inside this cog, not including subcommands.
         """
         return [c for c in self.__cog_commands__ if c.parent is None]
+
+    def get_app_commands(self) -> List[Union[app_commands.Command[Self, ..., Any], app_commands.Group]]:
+        r"""Returns the app commands that are defined inside this cog.
+
+        Returns
+        --------
+        List[Union[:class:`discord.app_commands.Command`, :class:`discord.app_commands.Group`]]
+            A :class:`list` of :class:`discord.app_commands.Command`\s and :class:`discord.app_commands.Group`\s that are
+            defined inside this cog, not including subcommands.
+        """
+        return [c for c in self.__cog_app_commands__ if c.parent is None]
 
     @property
     def qualified_name(self) -> str:
@@ -374,6 +415,19 @@ class Cog(metaclass=CogMeta):
                 yield command
                 if isinstance(command, GroupMixin):
                     yield from command.walk_commands()
+
+    def walk_app_commands(self) -> Generator[Union[app_commands.Command[Self, ..., Any], app_commands.Group], None, None]:
+        """An iterator that recursively walks through this cog's app commands and subcommands.
+
+        Yields
+        ------
+        Union[:class:`discord.app_commands.Command`, :class:`discord.app_commands.Group`]
+            An app command or group from the cog.
+        """
+        for command in self.__cog_app_commands__:
+            yield command
+            if isinstance(command, app_commands.Group):
+                yield from command.walk_commands()
 
     @property
     def app_command(self) -> Optional[app_commands.Group]:
@@ -525,6 +579,25 @@ class Cog(metaclass=CogMeta):
         pass
 
     @_cog_special_method
+    async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError) -> None:
+        """A special method that is called whenever an error within
+        an application command is dispatched inside this cog.
+
+        This is similar to :func:`discord.app_commands.CommandTree.on_error` except
+        only applying to the application commands inside this cog.
+
+        This **must** be a coroutine.
+
+        Parameters
+        -----------
+        interaction: :class:`~discord.Interaction`
+            The interaction that is being handled.
+        error: :exc:`~discord.app_commands.AppCommandError`
+            The exception that was raised.
+        """
+        pass
+
+    @_cog_special_method
     async def cog_before_invoke(self, ctx: Context[BotT]) -> None:
         """A special method that acts as a cog local pre-invoke hook.
 
@@ -575,7 +648,10 @@ class Cog(metaclass=CogMeta):
                     for to_undo in self.__cog_commands__[:index]:
                         if to_undo.parent is None:
                             bot.remove_command(to_undo.name)
-                    raise e
+                    try:
+                        await maybe_coroutine(self.cog_unload)
+                    finally:
+                        raise e
 
         # check if we're overriding the default
         if cls.bot_check is not Cog.bot_check:

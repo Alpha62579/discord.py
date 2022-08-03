@@ -203,8 +203,20 @@ to handle it, which defaults to logging the traceback and ignoring the exception
     errors. In order to turn a function into a coroutine they must be ``async def``
     functions.
 
+App Commands
+~~~~~~~~~~~~~
+
+.. function:: on_raw_app_command_permissions_update(payload)
+
+    Called when application command permissions are updated.
+
+    .. versionadded:: 2.0
+
+    :param payload: The raw event payload data.
+    :type payload: :class:`RawAppCommandPermissionsUpdateEvent`
+
 AutoMod
-~~~~~~~
+~~~~~~~~
 
 .. function:: on_automod_rule_create(rule)
 
@@ -275,16 +287,6 @@ Channels
     :type before: :class:`abc.GuildChannel`
     :param after: The updated guild channel's new info.
     :type after: :class:`abc.GuildChannel`
-
-.. function:: on_group_join(channel, user)
-              on_group_remove(channel, user)
-
-    Called when someone joins or leaves a :class:`GroupChannel`.
-
-    :param channel: The group that the user joined or left.
-    :type channel: :class:`GroupChannel`
-    :param user: The user that joined or left.
-    :type user: :class:`User`
 
 .. function:: on_guild_channel_pins_update(channel, last_pin)
 
@@ -4417,6 +4419,14 @@ RawMemberRemoveEvent
 .. autoclass:: RawMemberRemoveEvent()
     :members:
 
+RawAppCommandPermissionsUpdateEvent
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. attributetable:: RawAppCommandPermissionsUpdateEvent
+
+.. autoclass:: RawAppCommandPermissionsUpdateEvent()
+    :members:
+
 PartialWebhookGuild
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -4672,6 +4682,9 @@ The following exceptions are thrown by the library.
 .. autoexception:: HTTPException
     :members:
 
+.. autoexception:: RateLimited
+    :members:
+
 .. autoexception:: Forbidden
 
 .. autoexception:: NotFound
@@ -4710,3 +4723,4 @@ Exception Hierarchy
                 - :exc:`Forbidden`
                 - :exc:`NotFound`
                 - :exc:`DiscordServerError`
+            - :exc:`RateLimited`

@@ -95,6 +95,7 @@ if TYPE_CHECKING:
     from .types.guild import Guild as GuildPayload
     from .types.message import Message as MessagePayload, PartialMessage as PartialMessagePayload
     from .types import gateway as gw
+    from .types.command import GuildApplicationCommandPermissions as GuildApplicationCommandPermissionsPayload
 
     T = TypeVar('T')
     Channel = Union[GuildChannel, VocalGuildChannel, PrivateChannel, PartialMessageable]
@@ -377,8 +378,8 @@ class ConnectionState:
         return self._view_store.persistent_views
 
     @property
-    def guilds(self) -> List[Guild]:
-        return list(self._guilds.values())
+    def guilds(self) -> Sequence[Guild]:
+        return utils.SequenceProxy(self._guilds.values())
 
     def _get_guild(self, guild_id: Optional[int]) -> Optional[Guild]:
         # the keys of self._guilds are ints
@@ -402,12 +403,12 @@ class ConnectionState:
         del guild
 
     @property
-    def emojis(self) -> List[Emoji]:
-        return list(self._emojis.values())
+    def emojis(self) -> Sequence[Emoji]:
+        return utils.SequenceProxy(self._emojis.values())
 
     @property
-    def stickers(self) -> List[GuildSticker]:
-        return list(self._stickers.values())
+    def stickers(self) -> Sequence[GuildSticker]:
+        return utils.SequenceProxy(self._stickers.values())
 
     def get_emoji(self, emoji_id: Optional[int]) -> Optional[Emoji]:
         # the keys of self._emojis are ints
@@ -418,8 +419,8 @@ class ConnectionState:
         return self._stickers.get(sticker_id)  # type: ignore
 
     @property
-    def private_channels(self) -> List[PrivateChannel]:
-        return list(self._private_channels.values())
+    def private_channels(self) -> Sequence[PrivateChannel]:
+        return utils.SequenceProxy(self._private_channels.values())
 
     def _get_private_channel(self, channel_id: Optional[int]) -> Optional[PrivateChannel]:
         try:
@@ -1474,6 +1475,10 @@ class ConnectionState:
                 )
         else:
             _log.debug('SCHEDULED_EVENT_USER_REMOVE referencing unknown guild ID: %s. Discarding.', data['guild_id'])
+
+    def parse_application_command_permissions_update(self, data: GuildApplicationCommandPermissionsPayload):
+        raw = RawAppCommandPermissionsUpdateEvent(data=data, state=self)
+        self.dispatch('raw_app_command_permissions_update', raw)
 
     def parse_voice_state_update(self, data: gw.VoiceStateUpdateEvent) -> None:
         guild = self._get_guild(utils._get_as_snowflake(data, 'guild_id'))
