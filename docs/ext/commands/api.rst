@@ -18,7 +18,7 @@ Bot
 .. autoclass:: discord.ext.commands.Bot
     :members:
     :inherited-members:
-    :exclude-members: after_invoke, before_invoke, check, check_once, command, event, group, listen
+    :exclude-members: after_invoke, before_invoke, check, check_once, command, event, group, hybrid_command, hybrid_group, listen
 
     .. automethod:: Bot.after_invoke()
         :decorator:
@@ -39,6 +39,12 @@ Bot
         :decorator:
 
     .. automethod:: Bot.group(*args, **kwargs)
+        :decorator:
+
+    .. automethod:: Bot.hybrid_command(name=..., with_app_command=True, *args, **kwargs)
+        :decorator:
+
+    .. automethod:: Bot.hybrid_group(name=..., with_app_command=True, *args, **kwargs)
         :decorator:
 
     .. automethod:: Bot.listen(name=None)
@@ -188,9 +194,12 @@ HybridCommand
 .. autoclass:: discord.ext.commands.HybridCommand
     :members:
     :special-members: __call__
-    :exclude-members: after_invoke, before_invoke, error
+    :exclude-members: after_invoke, autocomplete, before_invoke, error
 
     .. automethod:: HybridCommand.after_invoke()
+        :decorator:
+
+    .. automethod:: HybridCommand.autocomplete(name)
         :decorator:
 
     .. automethod:: HybridCommand.before_invoke()
@@ -207,9 +216,12 @@ HybridGroup
 .. autoclass:: discord.ext.commands.HybridGroup
     :members:
     :inherited-members:
-    :exclude-members: after_invoke, before_invoke, command, error, group
+    :exclude-members: after_invoke, autocomplete, before_invoke, command, error, group
 
     .. automethod:: HybridGroup.after_invoke()
+        :decorator:
+
+    .. automethod:: HybridGroup.autocomplete(name)
         :decorator:
 
     .. automethod:: HybridGroup.before_invoke()
@@ -508,19 +520,19 @@ Defaults
 
 .. data:: discord.ext.commands.Author
 
-    A default :class:`.Parameter` which returns the :attr:`~.Context.author` for this context.
+    A default :class:`Parameter` which returns the :attr:`~.Context.author` for this context.
 
     .. versionadded:: 2.0
 
 .. data:: discord.ext.commands.CurrentChannel
 
-    A default :class:`.Parameter` which returns the :attr:`~.Context.channel` for this context.
+    A default :class:`Parameter` which returns the :attr:`~.Context.channel` for this context.
 
     .. versionadded:: 2.0
 
 .. data:: discord.ext.commands.CurrentGuild
 
-    A default :class:`.Parameter` which returns the :attr:`~.Context.guild` for this context. This will never be ``None``. If the command is called in a DM context then :exc:`~discord.ext.commands.NoPrivateMessage` is raised to the error handlers.
+    A default :class:`Parameter` which returns the :attr:`~.Context.guild` for this context. This will never be ``None``. If the command is called in a DM context then :exc:`~discord.ext.commands.NoPrivateMessage` is raised to the error handlers.
 
     .. versionadded:: 2.0
 

@@ -46,10 +46,11 @@ from typing import (
 
 from .errors import AppCommandError, TransformerError
 from .models import AppCommandChannel, AppCommandThread, Choice
+from .translator import TranslationContextLocation, TranslationContext, Translator, locale_str
 from ..channel import StageChannel, VoiceChannel, TextChannel, CategoryChannel
 from ..abc import GuildChannel
 from ..threads import Thread
-from ..enums import Enum as InternalEnum, AppCommandOptionType, ChannelType
+from ..enums import Enum as InternalEnum, AppCommandOptionType, ChannelType, Locale
 from ..utils import MISSING, maybe_coroutine
 from ..user import User
 from ..role import Role
@@ -69,34 +70,15 @@ NoneType = type(None)
 
 if TYPE_CHECKING:
     from ..interactions import Interaction
+    from .commands import Parameter
 
 
 @dataclass
 class CommandParameter:
-    """Represents an application command parameter.
-
-    Attributes
-    -----------
-    name: :class:`str`
-        The name of the parameter.
-    description: :class:`str`
-        The description of the parameter
-    required: :class:`bool`
-        Whether the parameter is required
-    choices: List[:class:`~discord.app_commands.Choice`]
-        A list of choices this parameter takes
-    type: :class:`~discord.AppCommandOptionType`
-        The underlying type of this parameter.
-    channel_types: List[:class:`~discord.ChannelType`]
-        The channel types that are allowed for this parameter.
-    min_value: Optional[Union[:class:`int`, :class:`float`]]
-        The minimum supported value for this parameter.
-    max_value: Optional[Union[:class:`int`, :class:`float`]]
-        The maximum supported value for this parameter.
-    """
-
+    # The name of the parameter is *always* the parameter name in the code
+    # Therefore, it can't be Union[str, locale_str]
     name: str = MISSING
-    description: str = MISSING
+    description: Union[str, locale_str] = MISSING
     required: bool = MISSING
     default: Any = MISSING
     choices: List[Choice[Union[str, int, float]]] = MISSING
@@ -105,14 +87,49 @@ class CommandParameter:
     min_value: Optional[Union[int, float]] = None
     max_value: Optional[Union[int, float]] = None
     autocomplete: Optional[Callable[..., Coroutine[Any, Any, Any]]] = None
-    _rename: str = MISSING
+    _rename: Union[str, locale_str] = MISSING
     _annotation: Any = MISSING
+
+    async def get_translated_payload(self, translator: Translator, data: Parameter) -> Dict[str, Any]:
+        base = self.to_dict()
+
+        rename = self._rename
+        description = self.description
+        needs_name_translations = isinstance(rename, locale_str)
+        needs_description_translations = isinstance(description, locale_str)
+        name_localizations: Dict[str, str] = {}
+        description_localizations: Dict[str, str] = {}
+
+        # Prevent creating these objects in a heavy loop
+        name_context = TranslationContext(location=TranslationContextLocation.parameter_name, data=data)
+        description_context = TranslationContext(location=TranslationContextLocation.parameter_description, data=data)
+        for locale in Locale:
+            if needs_name_translations:
+                translation = await translator._checked_translate(rename, locale, name_context)
+                if translation is not None:
+                    name_localizations[locale.value] = translation
+
+            if needs_description_translations:
+                translation = await translator._checked_translate(description, locale, description_context)
+                if translation is not None:
+                    description_localizations[locale.value] = translation
+
+        if self.choices:
+            base['choices'] = [await choice.get_translated_payload(translator) for choice in self.choices]
+
+        if name_localizations:
+            base['name_localizations'] = name_localizations
+
+        if description_localizations:
+            base['description_localizations'] = description_localizations
+
+        return base
 
     def to_dict(self) -> Dict[str, Any]:
         base = {
             'type': self.type.value,
             'name': self.display_name,
-            'description': self.description,
+            'description': str(self.description),
             'required': self.required,
         }
 
@@ -133,10 +150,24 @@ class CommandParameter:
 
         return base
 
+    def _convert_to_locale_strings(self) -> None:
+        if self._rename is MISSING:
+            self._rename = locale_str(self.name)
+        elif isinstance(self._rename, str):
+            self._rename = locale_str(self._rename)
+
+        if isinstance(self.description, str):
+            self.description = locale_str(self.description)
+
+        if self.choices:
+            for choice in self.choices:
+                if choice._locale_name is None:
+                    choice._locale_name = locale_str(choice.name)
+
     def is_choice_annotation(self) -> bool:
         return getattr(self._annotation, '__discord_app_commands_is_choice__', False)
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         if hasattr(self._annotation, '__discord_app_commands_transformer__'):
             # This one needs special handling for type safety reasons
             if self._annotation.__discord_app_commands_is_choice__:
@@ -158,7 +189,7 @@ class CommandParameter:
     @property
     def display_name(self) -> str:
         """:class:`str`: The name of the parameter as it should be displayed to the user."""
-        return self.name if self._rename is MISSING else self._rename
+        return self.name if self._rename is MISSING else str(self._rename)
 
 
 class Transformer:
@@ -274,7 +305,7 @@ class Transformer:
         else:
             return name
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         """|maybecoro|
 
         Transforms the converted option value into another value.
@@ -294,7 +325,7 @@ class Transformer:
         raise NotImplementedError('Derived classes need to implement this.')
 
     async def autocomplete(
-        self, interaction: Interaction, value: Union[int, float, str]
+        self, interaction: Interaction, value: Union[int, float, str], /
     ) -> List[Choice[Union[int, float, str]]]:
         """|coro|
 
@@ -330,7 +361,7 @@ class IdentityTransformer(Transformer):
     def type(self) -> AppCommandOptionType:
         return self._type
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         return value
 
 
@@ -428,7 +459,7 @@ class EnumValueTransformer(Transformer):
     def choices(self):
         return self._choices
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         return self._enum(value)
 
 
@@ -455,7 +486,7 @@ class EnumNameTransformer(Transformer):
     def choices(self):
         return self._choices
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         return self._enum[value]
 
 
@@ -472,7 +503,7 @@ class InlineTransformer(Transformer):
     def type(self) -> AppCommandOptionType:
         return AppCommandOptionType.string
 
-    async def transform(self, interaction: Interaction, value: Any) -> Any:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Any:
         return await self.annotation.transform(interaction, value)
 
 
@@ -584,7 +615,7 @@ class MemberTransformer(Transformer):
     def type(self) -> AppCommandOptionType:
         return AppCommandOptionType.user
 
-    async def transform(self, interaction: Interaction, value: Any) -> Member:
+    async def transform(self, interaction: Interaction, value: Any, /) -> Member:
         if not isinstance(value, Member):
             raise TransformerError(value, self.type, self)
         return value
@@ -622,7 +653,7 @@ class BaseChannelTransformer(Transformer):
     def channel_types(self) -> List[ChannelType]:
         return self._channel_types
 
-    async def transform(self, interaction: Interaction, value: Any):
+    async def transform(self, interaction: Interaction, value: Any, /):
         resolved = value.resolve()
         if resolved is None or not isinstance(resolved, self._types):
             raise TransformerError(value, AppCommandOptionType.channel, self)
@@ -630,14 +661,14 @@ class BaseChannelTransformer(Transformer):
 
 
 class RawChannelTransformer(BaseChannelTransformer):
-    async def transform(self, interaction: Interaction, value: Any):
+    async def transform(self, interaction: Interaction, value: Any, /):
         if not isinstance(value, self._types):
             raise TransformerError(value, AppCommandOptionType.channel, self)
         return value
 
 
 class UnionChannelTransformer(BaseChannelTransformer):
-    async def transform(self, interaction: Interaction, value: Any):
+    async def transform(self, interaction: Interaction, value: Any, /):
         if isinstance(value, self._types):
             return value
 
@@ -718,9 +749,6 @@ def get_supported_annotation(
 
     if isinstance(annotation, Transformer):
         return (annotation, MISSING, False)
-
-    if hasattr(annotation, '__metadata__'):
-        return get_supported_annotation(annotation.__metadata__[0])
 
     if inspect.isclass(annotation):
         if issubclass(annotation, Transformer):

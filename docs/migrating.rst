@@ -970,6 +970,16 @@ The library now provides a default logging configuration if using :meth:`Client.
 
 For more information, check :doc:`logging`.
 
+Text in Voice
+---------------
+
+In order to support text in voice functionality, a few changes had to be made:
+
+- :class:`VoiceChannel` is now :class:`abc.Messageable` so it can have messages sent and received.
+- :attr:`Message.channel` can now be :class:`VoiceChannel`.
+
+In the future this may include :class:`StageChannel` when Discord implements it.
+
 Removal of ``StoreChannel``
 -----------------------------
 
@@ -1028,19 +1038,22 @@ Parameters in the following methods are now all positional-only:
 - :meth:`TextChannel.get_partial_message`
 - :meth:`TextChannel.delete_messages`
 - :meth:`Webhook.delete_message`
-- :meth:`utils.find`
+- :func:`utils.find`
+- :func:`utils.snowflake_time`
 
 The following parameters are now positional-only:
 
-- ``iterable`` in :meth:`utils.get`
+- ``iterable`` in :func:`utils.get`
 - ``event_method`` in :meth:`Client.on_error`
 - ``event`` in :meth:`Client.wait_for`
+- ``dt`` in :func:`utils.time_snowflake`
 
 The following are now keyword-only:
 
 - Parameters in :meth:`Reaction.users`
 - Parameters in :meth:`Client.create_guild`
-- ``permissions``, ``guild``, ``redirect_uri``, and ``scopes`` parameters in :meth:`utils.oauth_url`
+- ``permissions``, ``guild``, ``redirect_uri``, and ``scopes`` parameters in :func:`utils.oauth_url`
+- ``high`` in :func:`utils.snowflake_time`
 
 The library now less often uses ``None`` as the default value for function/method parameters.
 
@@ -1109,6 +1122,7 @@ The following changes have been made:
 - :attr:`AuditLogEntry.target` may now be a :class:`PartialMessageable`.
 - :attr:`PartialMessage.channel` may now be a :class:`PartialMessageable`.
 - :attr:`Guild.preferred_locale` is now of type :class:`Locale`.
+- :attr:`abc.GuildChannel.overwrites` keys can now have :class:`Object` in them.
 
 Removals
 ----------

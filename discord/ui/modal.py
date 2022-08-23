@@ -134,7 +134,7 @@ class Modal(View):
 
         super().__init__(timeout=timeout)
 
-    async def on_submit(self, interaction: Interaction) -> None:
+    async def on_submit(self, interaction: Interaction, /) -> None:
         """|coro|
 
         Called when the modal is submitted.
@@ -146,7 +146,7 @@ class Modal(View):
         """
         pass
 
-    async def on_error(self, interaction: Interaction, error: Exception) -> None:
+    async def on_error(self, interaction: Interaction, error: Exception, /) -> None:
         """|coro|
 
         A callback that is called when :meth:`on_submit`
@@ -174,9 +174,11 @@ class Modal(View):
                     continue
                 item._refresh_state(component)  # type: ignore
 
-    async def _scheduled_task(self, interaction: Interaction):
+    async def _scheduled_task(self, interaction: Interaction, components: List[ModalSubmitComponentInteractionDataPayload]):
         try:
             self._refresh_timeout()
+            self._refresh(components)
+
             allow = await self.interaction_check(interaction)
             if not allow:
                 return
@@ -189,8 +191,10 @@ class Modal(View):
             # In the future, maybe this will require checking if we set an error response.
             self.stop()
 
-    def _dispatch_submit(self, interaction: Interaction) -> None:
-        asyncio.create_task(self._scheduled_task(interaction), name=f'discord-ui-modal-dispatch-{self.id}')
+    def _dispatch_submit(
+        self, interaction: Interaction, components: List[ModalSubmitComponentInteractionDataPayload]
+    ) -> None:
+        asyncio.create_task(self._scheduled_task(interaction, components), name=f'discord-ui-modal-dispatch-{self.id}')
 
     def to_dict(self) -> Dict[str, Any]:
         payload = {
