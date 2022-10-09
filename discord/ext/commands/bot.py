@@ -1023,6 +1023,11 @@ class BotBase(GroupMixin[None]):
         to do miscellaneous clean-up if necessary. This function takes a single
         parameter, the ``bot``, similar to ``setup`` from
         :meth:`~.Bot.load_extension`.
+        
+        The extension can also provide another global function, ``pre_unload``,
+        to do things before the extension is unloaded if necessary. This 
+        function takes a single parameter, the ``bot``, similar to ``teardown``
+        in this same method.
 
         .. versionchanged:: 2.0
 
@@ -1054,6 +1059,12 @@ class BotBase(GroupMixin[None]):
         lib = self.__extensions.get(name)
         if lib is None:
             raise errors.ExtensionNotLoaded(name)
+            
+        try:
+            pre_unload = getattr(lib, 'pre_unload')
+            await pre_unload(self)
+        except AttributeError:
+            pass
 
         await self._remove_module_references(lib.__name__)
         await self._call_module_finalizers(lib, name)
