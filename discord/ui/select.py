@@ -75,7 +75,7 @@ class Select(Item[V]):
         The placeholder text that is shown if nothing is selected, if any.
     min_values: :class:`int`
         The minimum number of items that must be chosen for this select menu.
-        Defaults to 1 and must be between 1 and 25.
+        Defaults to 1 and must be between 0 and 25.
     max_values: :class:`int`
         The maximum number of items that must be chosen for this select menu.
         Defaults to 1 and must be between 1 and 25.
@@ -114,7 +114,7 @@ class Select(Item[V]):
         self._provided_custom_id = custom_id is not MISSING
         custom_id = os.urandom(16).hex() if custom_id is MISSING else custom_id
         if not isinstance(custom_id, str):
-            raise TypeError(f'expected custom_id to be str not {custom_id.__class__!r}')
+            raise TypeError(f'expected custom_id to be str not {custom_id.__class__.__name__}')
 
         options = [] if options is MISSING else options
         self._underlying = SelectMenu._raw_construct(
@@ -335,7 +335,7 @@ def select(
         ordering. The row number must be between 0 and 4 (i.e. zero indexed).
     min_values: :class:`int`
         The minimum number of items that must be chosen for this select menu.
-        Defaults to 1 and must be between 1 and 25.
+        Defaults to 1 and must be between 0 and 25.
     max_values: :class:`int`
         The maximum number of items that must be chosen for this select menu.
         Defaults to 1 and must be between 1 and 25.

@@ -240,7 +240,7 @@ class SelectMenu(Component):
         The placeholder text that is shown if nothing is selected, if any.
     min_values: :class:`int`
         The minimum number of items that must be chosen for this select menu.
-        Defaults to 1 and must be between 1 and 25.
+        Defaults to 1 and must be between 0 and 25.
     max_values: :class:`int`
         The maximum number of items that must be chosen for this select menu.
         Defaults to 1 and must be between 1 and 25.
@@ -383,7 +383,7 @@ class SelectOption:
             elif isinstance(value, _EmojiTag):
                 self._emoji = value._to_partial()
             else:
-                raise TypeError(f'expected str, Emoji, or PartialEmoji, received {value.__class__} instead')
+                raise TypeError(f'expected str, Emoji, or PartialEmoji, received {value.__class__.__name__} instead')
         else:
             self._emoji = None
 
