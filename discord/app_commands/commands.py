@@ -99,19 +99,19 @@ T = TypeVar('T')
 F = TypeVar('F', bound=Callable[..., Any])
 GroupT = TypeVar('GroupT', bound='Binding')
 Coro = Coroutine[Any, Any, T]
-UnboundError = Callable[['Interaction', AppCommandError], Coro[Any]]
+UnboundError = Callable[['Interaction[Any]', AppCommandError], Coro[Any]]
 Error = Union[
-    Callable[[GroupT, 'Interaction', AppCommandError], Coro[Any]],
+    Callable[[GroupT, 'Interaction[Any]', AppCommandError], Coro[Any]],
     UnboundError,
 ]
-Check = Callable[['Interaction'], Union[bool, Coro[bool]]]
+Check = Callable[['Interaction[Any]'], Union[bool, Coro[bool]]]
 Binding = Union['Group', 'commands.Cog']
 
 
 if TYPE_CHECKING:
     CommandCallback = Union[
-        Callable[Concatenate[GroupT, 'Interaction', P], Coro[T]],
-        Callable[Concatenate['Interaction', P], Coro[T]],
+        Callable[Concatenate[GroupT, 'Interaction[Any]', P], Coro[T]],
+        Callable[Concatenate['Interaction[Any]', P], Coro[T]],
     ]
 
     ContextMenuCallback = Union[
@@ -120,15 +120,15 @@ if TYPE_CHECKING:
         # Callable[[GroupT, 'Interaction', User], Coro[Any]],
         # Callable[[GroupT, 'Interaction', Message], Coro[Any]],
         # Callable[[GroupT, 'Interaction', Union[Member, User]], Coro[Any]],
-        Callable[['Interaction', Member], Coro[Any]],
-        Callable[['Interaction', User], Coro[Any]],
-        Callable[['Interaction', Message], Coro[Any]],
-        Callable[['Interaction', Union[Member, User]], Coro[Any]],
+        Callable[['Interaction[Any]', Member], Coro[Any]],
+        Callable[['Interaction[Any]', User], Coro[Any]],
+        Callable[['Interaction[Any]', Message], Coro[Any]],
+        Callable[['Interaction[Any]', Union[Member, User]], Coro[Any]],
     ]
 
     AutocompleteCallback = Union[
-        Callable[[GroupT, 'Interaction', str], Coro[List[Choice[ChoiceT]]]],
-        Callable[['Interaction', str], Coro[List[Choice[ChoiceT]]]],
+        Callable[[GroupT, 'Interaction[Any]', str], Coro[List[Choice[ChoiceT]]]],
+        Callable[['Interaction[Any]', str], Coro[List[Choice[ChoiceT]]]],
     ]
 else:
     CommandCallback = Callable[..., Coro[T]]
@@ -1010,7 +1010,7 @@ class Command(Generic[GroupT, P, T]):
         if self.binding is not None:
             check: Optional[Check] = getattr(self.binding, 'interaction_check', None)
             if check:
-                ret = await maybe_coroutine(check, interaction)
+                ret = await maybe_coroutine(check, interaction)  # type: ignore # Probable pyright bug
                 if not ret:
                     return False
 
@@ -1064,6 +1064,9 @@ class Command(Generic[GroupT, P, T]):
 
         The coroutine decorator **must** return a list of :class:`~discord.app_commands.Choice` objects.
         Only up to 25 objects are supported.
+
+        .. warning::
+            The choices returned from this coroutine are suggestions. The user may ignore them and input their own value.
 
         Example:
 
@@ -2270,6 +2273,9 @@ def autocomplete(**parameters: AutocompleteCallback[GroupT, ChoiceT]) -> Callabl
     callback.
 
     For more information, see the :meth:`Command.autocomplete` documentation.
+
+    .. warning::
+        The choices returned from this coroutine are suggestions. The user may ignore them and input their own value.
 
     Example:
 

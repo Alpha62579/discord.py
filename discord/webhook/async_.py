@@ -38,14 +38,14 @@ import aiohttp
 from .. import utils
 from ..errors import HTTPException, Forbidden, NotFound, DiscordServerError
 from ..message import Message
-from ..enums import try_enum, WebhookType
+from ..enums import try_enum, WebhookType, ChannelType
 from ..user import BaseUser, User
 from ..flags import MessageFlags
 from ..asset import Asset
 from ..partial_emoji import PartialEmoji
 from ..http import Route, handle_message_parameters, MultipartParameters, HTTPClient, json_or_text
 from ..mixins import Hashable
-from ..channel import TextChannel, PartialMessageable
+from ..channel import TextChannel, ForumChannel, PartialMessageable
 from ..file import File
 
 __all__ = (
@@ -68,7 +68,7 @@ if TYPE_CHECKING:
     from ..http import Response
     from ..guild import Guild
     from ..emoji import Emoji
-    from ..channel import ForumChannel, VoiceChannel
+    from ..channel import VoiceChannel
     from ..abc import Snowflake
     from ..ui.view import View
     import datetime
@@ -723,6 +723,10 @@ class _WebhookState:
     def create_user(self, data: Union[UserPayload, PartialUserPayload]) -> BaseUser:
         # state parameter is artificial
         return BaseUser(state=self, data=data)  # type: ignore
+
+    @property
+    def allowed_mentions(self) -> Optional[AllowedMentions]:
+        return None
 
     def get_reaction_emoji(self, data: PartialEmojiPayload) -> Union[PartialEmoji, Emoji, str]:
         if self._parent is not None:
@@ -1492,10 +1496,18 @@ class Webhook(BaseWebhook):
         state = _WebhookState(self, parent=self._state, thread=thread)
         # state may be artificial (unlikely at this point...)
         if thread is MISSING:
-            channel = self.channel or PartialMessageable(state=self._state, guild_id=self.guild_id, id=int(data['channel_id']))  # type: ignore
+            channel_id = int(data['channel_id'])
+            channel = self.channel
+            # If this thread is created via thread_name then the channel_id would not be the same as the webhook's channel_id
+            # which would be the forum channel.
+            if self.channel_id != channel_id:
+                type = ChannelType.public_thread if isinstance(channel, ForumChannel) else (channel and channel.type)
+                channel = PartialMessageable(state=self._state, guild_id=self.guild_id, id=channel_id, type=type)  # type: ignore
+            else:
+                channel = self.channel or PartialMessageable(state=self._state, guild_id=self.guild_id, id=channel_id)  # type: ignore
         else:
             channel = self.channel
-            if isinstance(channel, TextChannel):
+            if isinstance(channel, (ForumChannel, TextChannel)):
                 channel = channel.get_thread(thread.id)
 
             if channel is None:
@@ -1703,7 +1715,7 @@ class Webhook(BaseWebhook):
         if thread_name is not MISSING and thread is not MISSING:
             raise TypeError('Cannot mix thread_name and thread keyword arguments.')
 
-        params = handle_message_parameters(
+        with handle_message_parameters(
             content=content,
             username=username,
             avatar_url=avatar_url,
@@ -1717,24 +1729,24 @@ class Webhook(BaseWebhook):
             thread_name=thread_name,
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
-        )
-        adapter = async_context.get()
-        thread_id: Optional[int] = None
-        if thread is not MISSING:
-            thread_id = thread.id
+        ) as params:
+            adapter = async_context.get()
+            thread_id: Optional[int] = None
+            if thread is not MISSING:
+                thread_id = thread.id
 
-        data = await adapter.execute_webhook(
-            self.id,
-            self.token,
-            session=self.session,
-            proxy=self.proxy,
-            proxy_auth=self.proxy_auth,
-            payload=params.payload,
-            multipart=params.multipart,
-            files=params.files,
-            thread_id=thread_id,
-            wait=wait,
-        )
+            data = await adapter.execute_webhook(
+                self.id,
+                self.token,
+                session=self.session,
+                proxy=self.proxy,
+                proxy_auth=self.proxy_auth,
+                payload=params.payload,
+                multipart=params.multipart,
+                files=params.files,
+                thread_id=thread_id,
+                wait=wait,
+            )
 
         msg = None
         if wait:
@@ -1883,7 +1895,7 @@ class Webhook(BaseWebhook):
             self._state.prevent_view_updates_for(message_id)
 
         previous_mentions: Optional[AllowedMentions] = getattr(self._state, 'allowed_mentions', None)
-        params = handle_message_parameters(
+        with handle_message_parameters(
             content=content,
             attachments=attachments,
             embed=embed,
@@ -1891,25 +1903,24 @@ class Webhook(BaseWebhook):
             view=view,
             allowed_mentions=allowed_mentions,
             previous_allowed_mentions=previous_mentions,
-        )
+        ) as params:
+            thread_id: Optional[int] = None
+            if thread is not MISSING:
+                thread_id = thread.id
 
-        thread_id: Optional[int] = None
-        if thread is not MISSING:
-            thread_id = thread.id
-
-        adapter = async_context.get()
-        data = await adapter.edit_webhook_message(
-            self.id,
-            self.token,
-            message_id,
-            session=self.session,
-            proxy=self.proxy,
-            proxy_auth=self.proxy_auth,
-            payload=params.payload,
-            multipart=params.multipart,
-            files=params.files,
-            thread_id=thread_id,
-        )
+            adapter = async_context.get()
+            data = await adapter.edit_webhook_message(
+                self.id,
+                self.token,
+                message_id,
+                session=self.session,
+                proxy=self.proxy,
+                proxy_auth=self.proxy_auth,
+                payload=params.payload,
+                multipart=params.multipart,
+                files=params.files,
+                thread_id=thread_id,
+            )
 
         message = self._create_message(data, thread=thread)
         if view and not view.is_finished():

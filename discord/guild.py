@@ -220,33 +220,8 @@ class Guild(Hashable):
         The guild's notification settings.
     features: List[:class:`str`]
         A list of features that the guild has. The features that a guild can have are
-        subject to arbitrary change by Discord.
-
-        They are currently as follows:
-
-        - ``ANIMATED_BANNER``: Guild can upload an animated banner.
-        - ``ANIMATED_ICON``: Guild can upload an animated icon.
-        - ``BANNER``: Guild can upload and use a banner. (i.e. :attr:`.banner`)
-        - ``COMMERCE``: Guild can sell things using store channels.
-        - ``COMMUNITY``: Guild is a community server.
-        - ``DISCOVERABLE``: Guild shows up in Server Discovery.
-        - ``FEATURABLE``: Guild is able to be featured in Server Discovery.
-        - ``INVITE_SPLASH``: Guild's invite page can have a special splash.
-        - ``MEMBER_VERIFICATION_GATE_ENABLED``: Guild has Membership Screening enabled.
-        - ``MONETIZATION_ENABLED``: Guild has enabled monetization.
-        - ``MORE_EMOJI``: Guild has increased custom emoji slots.
-        - ``MORE_STICKERS``: Guild has increased custom sticker slots.
-        - ``NEWS``: Guild can create news channels.
-        - ``PARTNERED``: Guild is a partnered server.
-        - ``PREVIEW_ENABLED``: Guild can be viewed before being accepted via Membership Screening.
-        - ``PRIVATE_THREADS``: Guild has access to create private threads.
-        - ``ROLE_ICONS``: Guild is able to set role icons.
-        - ``TICKETED_EVENTS_ENABLED``: Guild has enabled ticketed events.
-        - ``VANITY_URL``: Guild can have a vanity invite URL (e.g. discord.gg/discord-api).
-        - ``VERIFIED``: Guild is a verified server.
-        - ``VIP_REGIONS``: Guild can have 384kbps bitrate in voice channels.
-        - ``WELCOME_SCREEN_ENABLED``: Guild has enabled the welcome screen.
-        - ``INVITES_DISABLED``: Guild has disabled invites.
+        subject to arbitrary change by Discord. A list of guild features can be found
+        in :ddocs:`the Discord documentation <resources/guild#guild-object-guild-features>`.
 
     premium_tier: :class:`int`
         The premium tier for this guild. Corresponds to "Nitro Server" in the official UI.
@@ -1294,6 +1269,7 @@ class Guild(Hashable):
             .. versionadded:: 2.0
         default_auto_archive_duration: :class:`int`
             The default auto archive duration for threads created in the text channel (in minutes).
+            Must be one of ``60``, ``1440``, ``4320``, or ``10080``.
 
             .. versionadded:: 2.0
         reason: Optional[:class:`str`]
@@ -1603,6 +1579,7 @@ class Guild(Hashable):
             The reason for creating this channel. Shows up in the audit log.
         default_auto_archive_duration: :class:`int`
             The default auto archive duration for threads created in the forum channel (in minutes).
+            Must be one of ``60``, ``1440``, ``4320``, or ``10080``.
         default_thread_slowmode_delay: :class:`int`
             The default slowmode delay in seconds for threads created in this forum.
 
@@ -2079,7 +2056,7 @@ class Guild(Hashable):
             raise ClientException('Intents.members must be enabled to use this.')
 
         while True:
-            retrieve = min(1000 if limit is None else limit, 1000)
+            retrieve = 1000 if limit is None else min(limit, 1000)
             if retrieve < 1:
                 return
 
@@ -2304,7 +2281,7 @@ class Guild(Hashable):
             strategy, state = _after_strategy, after
 
         while True:
-            retrieve = min(1000 if limit is None else limit, 1000)
+            retrieve = 1000 if limit is None else min(limit, 1000)
             if retrieve < 1:
                 return
 
@@ -3660,15 +3637,11 @@ class Guild(Hashable):
         from .app_commands import AppCommand
 
         while True:
-            retrieve = min(100 if limit is None else limit, 100)
+            retrieve = 100 if limit is None else min(limit, 100)
             if retrieve < 1:
                 return
 
             data, raw_entries, state, limit = await strategy(retrieve, state, limit)
-
-            # Terminate loop on next iteration; there's no data left after this
-            if len(raw_entries) < 100:
-                limit = 0
 
             if reverse:
                 raw_entries = reversed(raw_entries)
@@ -3690,7 +3663,9 @@ class Guild(Hashable):
             )
             automod_rule_map = {rule.id: rule for rule in automod_rules}
 
-            for raw_entry in raw_entries:
+            count = 0
+
+            for count, raw_entry in enumerate(raw_entries, 1):
                 # Weird Discord quirk
                 if raw_entry['action_type'] is None:
                     continue
@@ -3703,6 +3678,10 @@ class Guild(Hashable):
                     automod_rules=automod_rule_map,
                     guild=self,
                 )
+
+            if count < 100:
+                # There's no data left after this
+                break
 
     async def widget(self) -> Widget:
         """|coro|
@@ -3813,9 +3792,7 @@ class Guild(Hashable):
     ) -> List[Member]:
         """|coro|
 
-        Request members that belong to this guild whose username starts with
-        the query given.
-
+        Request members of this guild whose username or nickname starts with the given query.
         This is a websocket operation.
 
         .. versionadded:: 1.3
@@ -3823,7 +3800,7 @@ class Guild(Hashable):
         Parameters
         -----------
         query: Optional[:class:`str`]
-            The string that the username's start with.
+            The string that the username or nickname should start with.
         limit: :class:`int`
             The maximum number of members to send back. This must be
             a number between 5 and 100.

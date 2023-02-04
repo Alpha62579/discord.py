@@ -673,7 +673,7 @@ class ChannelSelect(BaseSelect[V]):
 @overload
 def select(
     *,
-    cls: Type[SelectT] = Select,
+    cls: Type[SelectT] = Select[V],
     options: List[SelectOption] = MISSING,
     channel_types: List[ChannelType] = ...,
     placeholder: Optional[str] = ...,
@@ -689,7 +689,7 @@ def select(
 @overload
 def select(
     *,
-    cls: Type[UserSelectT],
+    cls: Type[UserSelectT] = UserSelect[V],
     options: List[SelectOption] = MISSING,
     channel_types: List[ChannelType] = ...,
     placeholder: Optional[str] = ...,
@@ -705,7 +705,7 @@ def select(
 @overload
 def select(
     *,
-    cls: Type[RoleSelectT],
+    cls: Type[RoleSelectT] = RoleSelect[V],
     options: List[SelectOption] = MISSING,
     channel_types: List[ChannelType] = ...,
     placeholder: Optional[str] = ...,
@@ -721,7 +721,7 @@ def select(
 @overload
 def select(
     *,
-    cls: Type[ChannelSelectT],
+    cls: Type[ChannelSelectT] = ChannelSelect[V],
     options: List[SelectOption] = MISSING,
     channel_types: List[ChannelType] = ...,
     placeholder: Optional[str] = ...,
@@ -737,7 +737,7 @@ def select(
 @overload
 def select(
     *,
-    cls: Type[MentionableSelectT],
+    cls: Type[MentionableSelectT] = MentionableSelect[V],
     options: List[SelectOption] = MISSING,
     channel_types: List[ChannelType] = MISSING,
     placeholder: Optional[str] = ...,
@@ -787,7 +787,7 @@ def select(
 
     .. versionchanged:: 2.1
         Added the following keyword-arguments: ``cls``, ``channel_types``
-    
+
     Example
     ---------
     .. code-block:: python3
@@ -836,11 +836,12 @@ def select(
     def decorator(func: ItemCallbackType[V, BaseSelectT]) -> ItemCallbackType[V, BaseSelectT]:
         if not inspect.iscoroutinefunction(func):
             raise TypeError('select function must be a coroutine function')
-        if not issubclass(cls, BaseSelect):
+        callback_cls = getattr(cls, '__origin__', cls)
+        if not issubclass(callback_cls, BaseSelect):
             supported_classes = ", ".join(["ChannelSelect", "MentionableSelect", "RoleSelect", "Select", "UserSelect"])
             raise TypeError(f'cls must be one of {supported_classes} or a subclass of one of them, not {cls!r}.')
 
-        func.__discord_ui_model_type__ = cls
+        func.__discord_ui_model_type__ = callback_cls
         func.__discord_ui_model_kwargs__ = {
             'placeholder': placeholder,
             'custom_id': custom_id,
@@ -849,9 +850,9 @@ def select(
             'max_values': max_values,
             'disabled': disabled,
         }
-        if issubclass(cls, Select):
+        if issubclass(callback_cls, Select):
             func.__discord_ui_model_kwargs__['options'] = options
-        if issubclass(cls, ChannelSelect):
+        if issubclass(callback_cls, ChannelSelect):
             func.__discord_ui_model_kwargs__['channel_types'] = channel_types
 
         return func
