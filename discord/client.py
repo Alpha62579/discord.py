@@ -1166,9 +1166,9 @@ class Client:
         event: Literal['app_command_completion'],
         /,
         *,
-        check: Optional[Callable[[Interaction[Self], Union[Command, ContextMenu]], bool]],
+        check: Optional[Callable[[Interaction[Self], Union[Command[Any, ..., Any], ContextMenu]], bool]],
         timeout: Optional[float] = None,
-    ) -> Tuple[Interaction[Self], Union[Command, ContextMenu]]:
+    ) -> Tuple[Interaction[Self], Union[Command[Any, ..., Any], ContextMenu]]:
         ...
 
     # AutoMod
@@ -1821,9 +1821,9 @@ class Client:
         event: Literal["command", "command_completion"],
         /,
         *,
-        check: Optional[Callable[[Context], bool]] = None,
+        check: Optional[Callable[[Context[Any]], bool]] = None,
         timeout: Optional[float] = None,
-    ) -> Context:
+    ) -> Context[Any]:
         ...
 
     @overload
@@ -1832,9 +1832,9 @@ class Client:
         event: Literal["command_error"],
         /,
         *,
-        check: Optional[Callable[[Context, CommandError], bool]] = None,
+        check: Optional[Callable[[Context[Any], CommandError], bool]] = None,
         timeout: Optional[float] = None,
-    ) -> Tuple[Context, CommandError]:
+    ) -> Tuple[Context[Any], CommandError]:
         ...
 
     @overload
@@ -2491,8 +2491,6 @@ class Client:
             The bot's application information.
         """
         data = await self.http.application_info()
-        if 'rpc_origins' not in data:
-            data['rpc_origins'] = None
         return AppInfo(self._connection, data)
 
     async def fetch_user(self, user_id: int, /) -> User:
@@ -2699,7 +2697,7 @@ class Client:
         TypeError
             A view was not passed.
         ValueError
-            The view is not persistent. A persistent view has no timeout
+            The view is not persistent or is already finished. A persistent view has no timeout
             and all their components have an explicitly provided custom_id.
         """
 
@@ -2708,6 +2706,9 @@ class Client:
 
         if not view.is_persistent():
             raise ValueError('View is not persistent. Items need to have a custom_id set and View must have no timeout')
+
+        if view.is_finished():
+            raise ValueError('View is already finished.')
 
         self._connection.store_view(view, message_id)
 

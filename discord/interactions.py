@@ -195,6 +195,11 @@ class Interaction(Generic[ClientT]):
 
         if self.guild_id:
             guild = self._state._get_or_create_unavailable_guild(self.guild_id)
+
+            # Upgrade Message.guild in case it's missing with partial guild data
+            if self.message is not None and self.message.guild is None:
+                self.message.guild = guild
+
             try:
                 member = data['member']  # type: ignore # The key is optional and handled
             except KeyError:
@@ -784,7 +789,7 @@ class InteractionResponse(Generic[ClientT]):
             params=params,
         )
 
-        if view is not MISSING:
+        if view is not MISSING and not view.is_finished():
             if ephemeral and view.timeout is None:
                 view.timeout = 15 * 60.0
 
@@ -954,8 +959,8 @@ class InteractionResponse(Generic[ClientT]):
             proxy_auth=http.proxy_auth,
             params=params,
         )
-
-        self._parent._state.store_view(modal)
+        if not modal.is_finished():
+            self._parent._state.store_view(modal)
         self._response_type = InteractionResponseType.modal
 
     async def autocomplete(self, choices: Sequence[Choice[ChoiceT]]) -> None:

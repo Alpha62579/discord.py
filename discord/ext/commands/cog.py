@@ -50,6 +50,7 @@ from ._types import _BaseCommand, BotT
 if TYPE_CHECKING:
     from typing_extensions import Self
     from discord.abc import Snowflake
+    from discord._types import ClientT
 
     from .bot import BotBase
     from .context import Context
@@ -338,7 +339,7 @@ class Cog(metaclass=CogMeta):
                 app_command: Optional[Union[app_commands.Group, app_commands.Command[Self, ..., Any]]] = getattr(
                     command, 'app_command', None
                 )
-                if app_command is not None:
+                if app_command:
                     group_parent = self.__cog_app_commands_group__
                     app_command = app_command._copy_with(parent=group_parent, binding=self)
                     # The type checker does not see the app_command attribute even though it exists
@@ -586,6 +587,18 @@ class Cog(metaclass=CogMeta):
         return True
 
     @_cog_special_method
+    def interaction_check(self, interaction: discord.Interaction[ClientT], /) -> bool:
+        """A special method that registers as a :func:`discord.app_commands.check`
+        for every app command and subcommand in this cog.
+
+        This function **can** be a coroutine and must take a sole parameter,
+        ``interaction``, to represent the :class:`~discord.Interaction`.
+
+        .. versionadded:: 2.0
+        """
+        return True
+
+    @_cog_special_method
     async def cog_command_error(self, ctx: Context[BotT], error: Exception) -> None:
         """|coro|
 
@@ -752,7 +765,7 @@ class GroupCog(Cog):
     and :func:`~discord.app_commands.default_permissions` will apply to the group if used on top of the
     cog.
 
-    Hybrid commands will also be added to the Group, giving the ability categorize slash commands into
+    Hybrid commands will also be added to the Group, giving the ability to categorize slash commands into
     groups, while keeping the prefix-style command as a root-level command.
 
     For example:
