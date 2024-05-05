@@ -33,6 +33,8 @@ from .app_commands import AppCommandPermissions
 from .colour import Colour
 
 if TYPE_CHECKING:
+    from typing_extensions import Self
+
     from .types.gateway import (
         MessageDeleteEvent,
         MessageDeleteBulkEvent as BulkMessageDeleteEvent,
@@ -158,7 +160,7 @@ class RawMessageUpdateEvent(_RawReprMixin):
         .. versionadded:: 1.7
 
     data: :class:`dict`
-        The raw data given by the :ddocs:`gateway <topics/gateway#message-update>`
+        The raw data given by the :ddocs:`gateway <topics/gateway-events#message-update>`
     cached_message: Optional[:class:`Message`]
         The cached message, if found in the internal message cache. Represents the message before
         it is modified by the data in :attr:`RawMessageUpdateEvent.data`.
@@ -355,7 +357,7 @@ class RawThreadUpdateEvent(_RawReprMixin):
     parent_id: :class:`int`
         The ID of the channel the thread belongs to.
     data: :class:`dict`
-        The raw data given by the :ddocs:`gateway <topics/gateway#thread-update>`
+        The raw data given by the :ddocs:`gateway <topics/gateway-events#thread-update>`
     thread: Optional[:class:`discord.Thread`]
         The thread, if it could be found in the internal cache.
     """
@@ -399,6 +401,20 @@ class RawThreadDeleteEvent(_RawReprMixin):
         self.parent_id: int = int(data['parent_id'])
         self.thread: Optional[Thread] = None
 
+    @classmethod
+    def _from_thread(cls, thread: Thread) -> Self:
+        data: ThreadDeleteEvent = {
+            'id': thread.id,
+            'type': thread.type.value,
+            'guild_id': thread.guild.id,
+            'parent_id': thread.parent_id,
+        }
+
+        instance = cls(data)
+        instance.thread = thread
+
+        return instance
+
 
 class RawThreadMembersUpdate(_RawReprMixin):
     """Represents the payload for a :func:`on_raw_thread_member_remove` event.
@@ -414,7 +430,7 @@ class RawThreadMembersUpdate(_RawReprMixin):
     member_count: :class:`int`
         The approximate number of members in the thread. This caps at 50.
     data: :class:`dict`
-        The raw data given by the :ddocs:`gateway <topics/gateway#thread-members-update>`.
+        The raw data given by the :ddocs:`gateway <topics/gateway-events#thread-members-update>`.
     """
 
     __slots__ = ('thread_id', 'guild_id', 'member_count', 'data')
