@@ -336,7 +336,7 @@ Enumerations
         Represents a link button.
     .. attribute:: premium
 
-        Represents a gradient button denoting that buying a SKU is
+        Represents a button denoting that buying a SKU is
         required to perform this action.
 
         .. versionadded:: 2.4
@@ -872,9 +872,6 @@ Exceptions
 .. autoexception:: discord.app_commands.CommandNotFound
     :members:
 
-.. autoexception:: discord.app_commands.MissingApplicationID
-    :members:
-
 .. autoexception:: discord.app_commands.CommandSyncFailure
     :members:
 
@@ -899,7 +896,7 @@ Exception Hierarchy
             - :exc:`~discord.app_commands.CommandAlreadyRegistered`
             - :exc:`~discord.app_commands.CommandSignatureMismatch`
             - :exc:`~discord.app_commands.CommandNotFound`
-            - :exc:`~discord.app_commands.MissingApplicationID`
+            - :exc:`~discord.MissingApplicationID`
             - :exc:`~discord.app_commands.CommandSyncFailure`
         - :exc:`~discord.HTTPException`
             - :exc:`~discord.app_commands.CommandSyncFailure`
