@@ -607,7 +607,10 @@ class DiscordWebSocket:
 
     def _can_handle_close(self) -> bool:
         code = self._close_code or self.socket.close_code
-        return code not in (1000, 4004, 4010, 4011, 4012, 4013, 4014)
+        # If the socket is closed remotely with 1000 and it's not our own explicit close
+        # then it's an improper close that should be handled and reconnected
+        is_improper_close = self._close_code is None and self.socket.close_code == 1000
+        return is_improper_close or code not in (1000, 4004, 4010, 4011, 4012, 4013, 4014)
 
     async def poll_event(self) -> None:
         """Polls for a DISPATCH event and handles the general gateway loop.
@@ -829,7 +832,7 @@ class DiscordVoiceWebSocket:
         self._close_code: Optional[int] = None
         self.secret_key: Optional[List[int]] = None
         if hook:
-            self._hook = hook
+            self._hook = hook  # type: ignore
 
     async def _hook(self, *args: Any) -> None:
         pass
@@ -891,7 +894,7 @@ class DiscordVoiceWebSocket:
 
         return ws
 
-    async def select_protocol(self, ip: str, port: int, mode: int) -> None:
+    async def select_protocol(self, ip: str, port: int, mode: str) -> None:
         payload = {
             'op': self.SELECT_PROTOCOL,
             'd': {

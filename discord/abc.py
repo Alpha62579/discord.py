@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import copy
 import time
+import secrets
 import asyncio
 from datetime import datetime
 from typing import (
@@ -100,6 +101,9 @@ if TYPE_CHECKING:
         Channel as ChannelPayload,
         GuildChannel as GuildChannelPayload,
         OverwriteType,
+    )
+    from .types.guild import (
+        ChannelPositionUpdate,
     )
     from .types.snowflake import (
         SnowflakeList,
@@ -1039,10 +1043,6 @@ class GuildChannel:
 
         .. versionadded:: 1.1
 
-        .. versionchanged:: 2.5
-
-            The ``category`` keyword-only parameter was added.
-
         Parameters
         ------------
         name: Optional[:class:`str`]
@@ -1051,6 +1051,8 @@ class GuildChannel:
         category: Optional[:class:`~discord.CategoryChannel`]
             The category the new channel belongs to.
             This parameter is ignored if cloning a category channel.
+
+            .. versionadded:: 2.5
         reason: Optional[:class:`str`]
             The reason for cloning this channel. Shows up on the audit log.
 
@@ -1233,11 +1235,11 @@ class GuildChannel:
             raise ValueError('Could not resolve appropriate move position')
 
         channels.insert(max((index + offset), 0), self)
-        payload = []
+        payload: List[ChannelPositionUpdate] = []
         lock_permissions = kwargs.get('sync_permissions', False)
         reason = kwargs.get('reason')
         for index, channel in enumerate(channels):
-            d = {'id': channel.id, 'position': index}
+            d: ChannelPositionUpdate = {'id': channel.id, 'position': index}
             if parent_id is not MISSING and channel.id == self.id:
                 d.update(parent_id=parent_id, lock_permissions=lock_permissions)
             payload.append(d)
@@ -1532,10 +1534,11 @@ class Messageable:
             .. versionadded:: 1.4
 
         reference: Union[:class:`~discord.Message`, :class:`~discord.MessageReference`, :class:`~discord.PartialMessage`]
-            A reference to the :class:`~discord.Message` to which you are replying, this can be created using
-            :meth:`~discord.Message.to_reference` or passed directly as a :class:`~discord.Message`. You can control
-            whether this mentions the author of the referenced message using the :attr:`~discord.AllowedMentions.replied_user`
-            attribute of ``allowed_mentions`` or by setting ``mention_author``.
+            A reference to the :class:`~discord.Message` to which you are referencing, this can be created using
+            :meth:`~discord.Message.to_reference` or passed directly as a :class:`~discord.Message`.
+            In the event of a replying reference, you can control whether this mentions the author of the referenced
+            message using the :attr:`~discord.AllowedMentions.replied_user` attribute of ``allowed_mentions`` or by
+            setting ``mention_author``.
 
             .. versionadded:: 1.6
 
@@ -1571,6 +1574,9 @@ class Messageable:
             Sending the message failed.
         ~discord.Forbidden
             You do not have the proper permissions to send the message.
+        ~discord.NotFound
+            You sent a message with the same nonce as one that has been explicitly
+            deleted shortly earlier.
         ValueError
             The ``files`` or ``embeds`` list is not of the appropriate size.
         TypeError
@@ -1614,6 +1620,9 @@ class Messageable:
             flags.suppress_notifications = silent
         else:
             flags = MISSING
+
+        if nonce is None:
+            nonce = secrets.randbits(64)
 
         with handle_message_parameters(
             content=content,
